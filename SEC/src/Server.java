@@ -5,7 +5,7 @@ import java.util.*;
 
 // the server that can be run as a console
 public class Server {
-	//testar commit
+
 	// a unique ID for each connection
 	private static int connectionID;
 	
