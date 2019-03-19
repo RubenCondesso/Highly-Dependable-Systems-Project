@@ -13,7 +13,7 @@ public class Server {
 	private ArrayList<ClientThread> clientsList;
 	
 	// HashMap to keep the goods of each Client
-	private HashMap<String, String> clientGoodsList = new HashMap<String,String>();
+	private HashMap<String, String> clientsGoodsList = new HashMap<String,String>();
 		
 	// to display time
 	private SimpleDateFormat sdf;
@@ -292,6 +292,16 @@ public class Server {
 				clientID= clientsGoodsList.get(nomeCliente);
 								
 				broadcast(notif + clientID + " has joined the application " + notif);
+				
+				for (Map.Entry<String, String> item : clientsGoodsList.entrySet()) {
+					
+					String key = item.getKey();
+				    String value = item.getValue();
+				    
+				    //Add the new client and his goods to the all goods List
+				    clientsGoodsList.put(key, value);
+				    
+				}
 				
 			}
 			catch (IOException e) {
