@@ -18,7 +18,11 @@ public class Client  {
 	private String server, clientID, good;	
 	private int port;	
 	
-	private HashMap<String, String> goodsList = new HashMap<String, String>();
+	//List of goods of the client
+	private static HashMap<String, String> goodsList = new HashMap<String, String>();
+	
+	//List of goods of the client that are for sale
+	private static HashMap<String, String> goodsToList = new HashMap<String, String>();
 	
 	public String getClientID() {
 		return clientID;
@@ -54,7 +58,7 @@ public class Client  {
 	}
 	
 	/*
-	 * To start the chat
+	 * To start the application
 	 */
 	
 	public boolean start() {
@@ -65,6 +69,7 @@ public class Client  {
 		
 		// exception handler if it failed
 		catch(Exception ec) {
+			
 			display("Error connectiong to server:" + ec);
 			return false;
 		}
@@ -75,10 +80,13 @@ public class Client  {
 		/* Creating both Data Stream */
 		try
 		{
+			
 			sInput  = new ObjectInputStream(socket.getInputStream());
 			sOutput = new ObjectOutputStream(socket.getOutputStream());
 		}
+		
 		catch (IOException eIO) {
+			
 			display("Exception creating new Input/output Streams: " + eIO);
 			return false;
 		}
@@ -91,9 +99,9 @@ public class Client  {
 		try
 		{
 			
-			setGoodsClient("A", clientID);
-			setGoodsClient("B", clientID);
-			setGoodsClient("C", clientID);
+			setGoodsClient(clientID + "Maça", clientID);
+			setGoodsClient(clientID + "Banana", clientID);
+			setGoodsClient(clientID + "Kiwi", clientID);
 									
 			sOutput.writeObject(getGoodsClient());
 		}
@@ -117,14 +125,40 @@ public class Client  {
 		
 	}
 	
+	
+	// Client wants to sell some specific good
+	private static String intentionToSell (String good){
+		
+		//check if the good in hand are in the list of goods of this client
+		for (Map.Entry<String, String> item : goodsList.entrySet()) {
+			
+			//the good of the client
+			String key = item.getKey();
+			
+			if (key.equals(good)){
+				
+				return good;
+			}
+		}
+		
+		return null;
+	}
+	
+	// Client wants to see the state of some specific good (available or not available)
+	private static String getStateOfGood (String good){	
+		return good;
+	}
+	
+	
 	/*
 	 * To send a message to the server
 	 */
-	
 	void sendMessage(MessageHandler msg) {
+		
 		try {
 			sOutput.writeObject(msg);
 		}
+		
 		catch(IOException e) {
 			display("Exception writing to server: " + e);
 		}
@@ -216,7 +250,10 @@ public class Client  {
 		System.out.println("1. Type the message to send broadcast to all active clients");
 		System.out.println("2. Type '@clientID<space>yourmessage' to send message to desired client");
 		System.out.println("3. Type 'WHOISIN' to see list of active clients");
-		System.out.println("4. Type 'LOGOUT' to logoff from server");
+		System.out.println("4. Type 'SELL' to inform the server that you want to sell some good");
+		System.out.println("6. Type 'STATEGOOD' to see if some specific good is available for sell");
+		System.out.println("6. Type 'LOGOUT' to logoff from server");
+		
 		
 		// infinite loop to get the input from the user
 		while(true) {
@@ -224,20 +261,57 @@ public class Client  {
 			
 			// read message from user
 			String msg = scan.nextLine();
-			
+						
 			// logout if message is LOGOUT
 			if(msg.equalsIgnoreCase("LOGOUT")) {
 				client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, ""));
 				break;
 			}
 			
-			// message to check who are present in chatroom
+			// message to check who are present in the application
 			else if(msg.equalsIgnoreCase("WHOISIN")) {
 				client.sendMessage(new MessageHandler(MessageHandler.WHOISIN, ""));				
 			}
 			
+			// message to inform server that client want to sell some good
+			else if(msg.equalsIgnoreCase("SELL")) {
+				
+				System.out.println("Write the good you want to sell: ");
+				
+				String msgGoodToServer = scan.nextLine();
+				
+				msgGoodToServer=intentionToSell(msgGoodToServer);
+				
+				//The good was found in the good's list
+				if(msgGoodToServer != null){
+					
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, msgGoodToServer));	
+					
+				}
+				
+				else{
+					
+					System.out.println("Something went wrong. The good you typed is not in your good's list. ");
+				}
+				
+			}
+			
+			// message to the server to get the state of some good
+			else if(msg.equalsIgnoreCase("STATEGOOD")) {
+							
+				System.out.println("Write the product of which the state you want to check: ");
+							
+				String msgGoodStateToServer = scan.nextLine();
+							
+				msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
+														
+				client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, msgGoodStateToServer));	
+																						
+			}
+			
 			// regular text message
 			else {
+				
 				client.sendMessage(new MessageHandler(MessageHandler.MESSAGE, msg));
 			}
 		}
@@ -255,20 +329,29 @@ public class Client  {
 	class ListenFromServer extends Thread {
 
 		public void run() {
+			
 			while(true) {
+				
 				try {
 					
 					// read the message form the input datastream
 					String msg = (String) sInput.readObject();
-					
+									
 					// print the message
 					System.out.println(msg);
 					System.out.print("> ");
+										
+					//if (msg.equals()){
+						
+						//System.out.print("");
+					//}
 				}
+				
 				catch(IOException e) {
 					display(notif + "Server has closed the connection: " + e + notif);
 					break;
 				}
+				
 				catch(ClassNotFoundException e2) {
 				}
 			}

@@ -10,11 +10,8 @@ import java.io.*;
 public class MessageHandler implements Serializable {
 
 	// The different types of message sent by the Client
-	// WHOISIN to receive the list of the users connected
-	// MESSAGE an ordinary text message
-	// LOGOUT to disconnect from the Server
-	
-	static final int WHOISIN = 0, MESSAGE = 1, LOGOUT = 2;
+		
+	static final int WHOISIN = 0, MESSAGE = 1, LOGOUT = 2, SELL = 3, STATEGOOD=4;
 	private int type;
 	private String message;
 	

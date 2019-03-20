@@ -14,7 +14,10 @@ public class Server {
 	
 	// HashMap to keep the goods of each Client
 	private HashMap<String, String> clientsGoodsList = new HashMap<String,String>();
-		
+	
+	// HashMap to keep the goods to sell of each Client
+	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
+	
 	// to display time
 	private SimpleDateFormat sdf;
 	
@@ -125,6 +128,7 @@ public class Server {
 		String[] w = message.split(" ",3);
 		
 		boolean isPrivate = false;
+		
 		if(w[1].charAt(0)=='@') 
 			isPrivate=true;
 		
@@ -139,15 +143,16 @@ public class Server {
 			boolean found=false;
 			
 			// we loop in reverse order to find the mentioned clientID
-			for(int y=clientsList.size(); --y>=0;)
-			{
+			for(int y=clientsList.size(); --y>=0;){
+				
 				ClientThread ct1=clientsList.get(y);
 				String check=ct1.getClientID();
-				if(check.equals(tocheck))
-				{
+				
+				if(check.equals(tocheck)) {
 					
 					// try to write to the Client if it fails remove it from the list
 					if(!ct1.writeMsg(messageLf)) {
+						
 						clientsList.remove(y);
 						display("Disconnected Client " + ct1.clientID + " removed from list.");
 					}
@@ -177,10 +182,12 @@ public class Server {
 			// we loop in reverse order in case we would have to remove a Client
 			// because it has disconnected
 			for(int i = clientsList.size(); --i >= 0;) {
+				
 				ClientThread ct = clientsList.get(i);
 				
 				// try to write to the Client if it fails remove it from the list
 				if(!ct.writeMsg(messageLf)) {
+					
 					clientsList.remove(i);
 					display("Disconnected Client " + ct.clientID + " removed from list.");
 				}
@@ -198,16 +205,18 @@ public class Server {
 		
 		// scan the array list until we found the Id
 		for(int i = 0; i < clientsList.size(); ++i) {
+			
 			ClientThread ct = clientsList.get(i);
 			
 			// if found remove it
 			if(ct.id == id) {
+				
 				disconnectedClient = ct.getClientID();
 				clientsList.remove(i);
 				break;
 			}
 		}
-		broadcast(notif + disconnectedClient + " has left the chat room." + notif);
+		broadcast(notif + disconnectedClient + " has left the application. " + notif);
 	}
 	
 	
@@ -228,12 +237,15 @@ public class Server {
 					portNumber = Integer.parseInt(args[0]);
 				}
 				catch(Exception e) {
+					
 					System.out.println("Invalid port number.");
 					System.out.println("Usage is: > java Server [portNumber]");
 					return;
 				}
+				
 			case 0:
 				break;
+				
 			default:
 				System.out.println("Usage is: > java Server [portNumber]");
 				return;
@@ -276,26 +288,30 @@ public class Server {
 					
 			//Creating both Data Stream
 			System.out.println("Thread trying to create Object Input/Output Streams");
+			
 			try
 			{
 				sOutput = new ObjectOutputStream(socket.getOutputStream());
 				sInput  = new ObjectInputStream(socket.getInputStream());
 								
 				// read the goods list of the client and his clientID
-				@SuppressWarnings("unchecked")
-				HashMap<String, String> clientsGoodsList =(HashMap<String, String>) sInput.readObject();
+			
+				HashMap<String, String> temporaryList = (HashMap<String, String>) sInput.readObject();
 				
-				Object nomeCliente = clientsGoodsList.keySet().toArray()[0];
+				Object nomeCliente = temporaryList.keySet().toArray()[0];
 								
 				//clientID = (String) sInput.readObject();
 				
-				clientID= clientsGoodsList.get(nomeCliente);
+				clientID= temporaryList .get(nomeCliente);
 								
 				broadcast(notif + clientID + " has joined the application " + notif);
 				
-				for (Map.Entry<String, String> item : clientsGoodsList.entrySet()) {
+				for (Map.Entry<String, String> item : temporaryList.entrySet()) {
 					
+					//the good of the client
 					String key = item.getKey();
+					
+					//Client name
 				    String value = item.getValue();
 				    
 				    //Add the new client and his goods to the all goods List
@@ -305,11 +321,14 @@ public class Server {
 				
 			}
 			catch (IOException e) {
+				
 				display("Exception creating new Input/output Streams: " + e);
 				return;
 			}
+			
 			catch (ClassNotFoundException e) {
 			}
+			
             date = new Date().toString() + "\n";
 		}
 		
@@ -348,28 +367,100 @@ public class Server {
 				switch(msghandler.getType()) {
 
 				case MessageHandler.MESSAGE:
+					
 					boolean confirmation =  broadcast(clientID + ": " + message);
 					
 					if(confirmation==false){
+						
 						String msg = notif + "Sorry. No such user exists." + notif;
 						writeMsg(msg);
 					}
+					
 					break;
 					
 				case MessageHandler.LOGOUT:
+					
 					display(clientID + " disconnected with a LOGOUT message.");
 					serverRunning = false;
+					
 					break;
 					
 				case MessageHandler.WHOISIN:
+					
 					writeMsg("List of the users connected at " + sdf.format(new Date()) + "\n");
 										
 					// send list of active clients
 					for(int i = 0; i < clientsList.size(); ++i) {
+						
 						ClientThread ct = clientsList.get(i);
 						writeMsg((i+1) + ") " + ct.clientID + " since " + ct.date);
 					}
+					
 					break;
+					
+				case MessageHandler.SELL:
+					
+					display("The client " + clientID + " want to sell the following good: " + message);
+										
+					int c=0;
+										
+					for (Map.Entry<String, String> item : clientsGoodsList.entrySet()){
+						
+						String key = item.getKey();
+					    String value = item.getValue();
+					    
+					    // Check if the client it is the owner of the good
+					    if (value.equals(clientID) && key.equals(message)){
+					    	
+					    	c=1;
+					    	
+					    	//put the good on the list of produts to sell
+					    	clientsGoodsToSell.put(key, value);
+					    	
+					    	writeMsg("Everything is okay. You can sell this good. " + sdf.format(new Date()) + "\n");
+					 
+					    }
+					}
+					//The ClientID and/or his good was not found in the clients goods list    
+					if(c == 0){
+						
+						writeMsg("Your ID and/or your good can not be find in our list. You can't sell this good. " + sdf.format(new Date()) + "\n");
+						
+					}
+					
+					break;
+											
+				
+				case MessageHandler.STATEGOOD:
+					
+					display("The client " + clientID + " want to check the state of the following good: " + message);
+					
+					int s=0;
+					
+					for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+						
+						String key = item.getKey();
+					    String value = item.getValue();
+					    
+					    //Verify if the requested good is on sale 
+					    if (key.equals(message)){
+					    	
+					    	s=1;
+					    	
+					    	writeMsg("This good is for sale. The owner is: " + value + " . " + sdf.format(new Date()) + "\n");
+					    
+					    }						
+					}
+					
+					//This good is not for sale   
+					if(s == 0){
+						
+						writeMsg("This good it's not for sale. " + sdf.format(new Date()) + "\n");
+						
+					}
+					
+					break;
+					
 				}
 			}
 			
@@ -399,6 +490,7 @@ public class Server {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
+				
 				close();
 				return false;
 			}
@@ -410,6 +502,7 @@ public class Server {
 			
 			// if an error occurs, do not abort just inform the user
 			catch(IOException e) {
+				
 				display(notif + "Error sending message to " + clientID + notif);
 				display(e.toString());
 			}
