@@ -15,6 +15,7 @@
 The goal of the project is to create a Highly Dependable Notary application (HDS Notary). The main goal of the HDS Notary is to certify the transfer of ownership of arbitrary goods between users.
 
 This project has 2 parts:
+
   1.  
   2. 
 
