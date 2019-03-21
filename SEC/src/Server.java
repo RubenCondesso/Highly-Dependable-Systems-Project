@@ -455,6 +455,18 @@ public class Server {
 					
 					break;
 					
+				case MessageHandler.BUYGOOD:
+					boolean cli =  broadcast(clientID + " wants to buy something from you");
+					
+					if(cli==false){
+						
+						String msg = notif + "Sorry. No such user exists." + notif;
+						writeMsg(msg);
+					}
+					
+					break;
+					
+					
 				}
 			}
 			

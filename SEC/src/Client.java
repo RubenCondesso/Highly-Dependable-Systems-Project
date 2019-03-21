@@ -99,7 +99,7 @@ public class Client  {
 		try
 		{
 			
-			setGoodsClient(clientID + "Maça", clientID);
+			setGoodsClient(clientID + "Maï¿½a", clientID);
 			setGoodsClient(clientID + "Banana", clientID);
 			setGoodsClient(clientID + "Kiwi", clientID);
 									
@@ -143,6 +143,24 @@ public class Client  {
 		
 		return null;
 	}
+	
+	private static String buyGood(String good) {
+			
+		for (Map.Entry<String, String> item : goodsList.entrySet()) {
+			
+			//the good of the client
+			String key = item.getKey();
+			
+			if (!key.equals(good)){
+				
+				return good;
+			}
+		}
+		
+		return null;
+	}
+		
+		
 	
 	// Client wants to see the state of some specific good (available or not available)
 	private static String getStateOfGood (String good){	
@@ -251,7 +269,8 @@ public class Client  {
 		System.out.println("2. Type '@clientID<space>yourmessage' to send message to desired client");
 		System.out.println("3. Type 'SELL' to inform the server that you want to sell some good");
 		System.out.println("4. Type 'STATEGOOD' to see if some specific good is available for sell");
-		System.out.println("5. Type 'LOGOUT' to logoff from server");
+		System.out.println("5. Type 'BUYGOOD' to buy a good");
+		System.out.println("6. Type 'LOGOUT' to logoff from server");
 		
 		
 		// infinite loop to get the input from the user
@@ -305,7 +324,12 @@ public class Client  {
 			
 			// message to the server to buy some good
 			else if(msg.equalsIgnoreCase("BUYGOOD")) {
-										
+				String goodToBuy = scan.nextLine();
+				goodToBuy=getStateOfGood(goodToBuy);
+				client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD,goodToBuy));
+				
+				
+				
 				
 																									
 			}
@@ -344,7 +368,6 @@ public class Client  {
 					
 					// read the message form the input datastream
 					String msg = (String) sInput.readObject();
-									
 					// print the message
 					System.out.println(msg);
 					System.out.print("> ");
