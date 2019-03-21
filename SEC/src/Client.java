@@ -22,7 +22,7 @@ public class Client  {
 	private static HashMap<String, String> goodsList = new HashMap<String, String>();
 	
 	//List of goods of the client that are for sale
-	private static HashMap<String, String> goodsToList = new HashMap<String, String>();
+	//private static HashMap<String, String> goodsToList = new HashMap<String, String>();
 	
 	public String getClientID() {
 		return clientID;
@@ -34,7 +34,7 @@ public class Client  {
 	
 	
 	public void setGoodsClient(String good, String clientID) {
-		this.goodsList.put(good, clientID);
+		goodsList.put(good, clientID);
 	}
 	
 	public HashMap<String, String> getGoodsClient() {
@@ -249,10 +249,9 @@ public class Client  {
 		System.out.println("\nHello.! Welcome to HDS Notary Application");
 		System.out.println("1. Type the message to send broadcast to all active clients");
 		System.out.println("2. Type '@clientID<space>yourmessage' to send message to desired client");
-		System.out.println("3. Type 'WHOISIN' to see list of active clients");
-		System.out.println("4. Type 'SELL' to inform the server that you want to sell some good");
-		System.out.println("6. Type 'STATEGOOD' to see if some specific good is available for sell");
-		System.out.println("6. Type 'LOGOUT' to logoff from server");
+		System.out.println("3. Type 'SELL' to inform the server that you want to sell some good");
+		System.out.println("4. Type 'STATEGOOD' to see if some specific good is available for sell");
+		System.out.println("5. Type 'LOGOUT' to logoff from server");
 		
 		
 		// infinite loop to get the input from the user
@@ -267,12 +266,7 @@ public class Client  {
 				client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, ""));
 				break;
 			}
-			
-			// message to check who are present in the application
-			else if(msg.equalsIgnoreCase("WHOISIN")) {
-				client.sendMessage(new MessageHandler(MessageHandler.WHOISIN, ""));				
-			}
-			
+						
 			// message to inform server that client want to sell some good
 			else if(msg.equalsIgnoreCase("SELL")) {
 				
@@ -307,6 +301,20 @@ public class Client  {
 														
 				client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, msgGoodStateToServer));	
 																						
+			}
+			
+			// message to the server to buy some good
+			else if(msg.equalsIgnoreCase("BUYGOOD")) {
+										
+				
+																									
+			}
+			
+			// message to the server to transfer some good
+			else if(msg.equalsIgnoreCase("TRANSFERGOOD")) {
+													
+							
+																												
 			}
 			
 			// regular text message

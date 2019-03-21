@@ -350,12 +350,15 @@ public class Server {
 				
 				// read a String (which is an object)
 				try {
+					
 					msghandler = (MessageHandler) sInput.readObject();
 				}
+				
 				catch (IOException e) {
 					display(clientID + " Exception reading Streams: " + e);
 					break;				
 				}
+				
 				catch(ClassNotFoundException e2) {
 					break;
 				}
@@ -384,20 +387,7 @@ public class Server {
 					serverRunning = false;
 					
 					break;
-					
-				case MessageHandler.WHOISIN:
-					
-					writeMsg("List of the users connected at " + sdf.format(new Date()) + "\n");
 										
-					// send list of active clients
-					for(int i = 0; i < clientsList.size(); ++i) {
-						
-						ClientThread ct = clientsList.get(i);
-						writeMsg((i+1) + ") " + ct.clientID + " since " + ct.date);
-					}
-					
-					break;
-					
 				case MessageHandler.SELL:
 					
 					display("The client " + clientID + " want to sell the following good: " + message);
@@ -417,14 +407,16 @@ public class Server {
 					    	//put the good on the list of produts to sell
 					    	clientsGoodsToSell.put(key, value);
 					    	
-					    	writeMsg("Everything is okay. You can sell this good. " + sdf.format(new Date()) + "\n");
+					    	display("The good you asked is for sale now. ");
+					    	writeMsg("Yes" + "\n");
 					 
 					    }
 					}
 					//The ClientID and/or his good was not found in the clients goods list    
 					if(c == 0){
 						
-						writeMsg("Your ID and/or your good can not be find in our list. You can't sell this good. " + sdf.format(new Date()) + "\n");
+						display("The ClientID and/or his good was not found in the clients goods list.  ");
+						writeMsg("No" + "\n");
 						
 					}
 					
@@ -447,7 +439,8 @@ public class Server {
 					    	
 					    	s=1;
 					    	
-					    	writeMsg("This good is for sale. The owner is: " + value + " . " + sdf.format(new Date()) + "\n");
+					    	display("The good you asked is for sale. ");
+					    	writeMsg(key + "," + value + "\n");
 					    
 					    }						
 					}
@@ -455,7 +448,8 @@ public class Server {
 					//This good is not for sale   
 					if(s == 0){
 						
-						writeMsg("This good it's not for sale. " + sdf.format(new Date()) + "\n");
+						display("The good you asked is not for sale or does not exist. ");
+						writeMsg("No" + "\n");
 						
 					}
 					
