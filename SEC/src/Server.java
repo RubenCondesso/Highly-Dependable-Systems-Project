@@ -375,7 +375,7 @@ public class Server {
 					
 				case MessageHandler.LOGOUT:
 					
-					display(clientID + " disconnected with a LOGOUT message.");
+					display(clientID + " disconnected from the application.");
 					serverRunning = false;
 					
 					break;
@@ -421,27 +421,38 @@ public class Server {
 					
 					int s=0;
 					
-					for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-						
-						String key = item.getKey();
-					    String value = item.getValue();
+					for (Map.Entry<String, String> item0 : clientsGoodsList.entrySet()){
+					
+					    String checkCliente = item0.getValue();
 					    
-					    //Verify if the requested good is on sale 
-					    if (key.equals(message)){
+					    // Check if the client exists on the application 
+					    if (checkCliente.equals(clientID)){
 					    	
-					    	s=1;
+					    	for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+								
+								String key = item.getKey();
+							    String value = item.getValue();
+							    
+							    //Verify if the requested good is on sale 
+							    if (key.equals(message)){
+							    	
+							    	s=1;
+							    	
+							    	display("The good is for sale.");
+							    	
+							    	writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
+							    
+							    }						
+							}
 					    	
-					    	display("The good is for sale.");
-					    	
-					    	writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
-					    
-					    }						
+					    }
 					}
 					
+															
 					//This good is not for sale   
 					if(s == 0){
 						
-						display("The good you asked is not for sale or does not exist. ");
+						display("The good you asked is not for sale or does not exist or your ID does not exist in the application");
 						writeMsg("No" + "\n");
 						
 					}
