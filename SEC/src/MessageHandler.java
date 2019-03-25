@@ -11,7 +11,7 @@ public class MessageHandler implements Serializable {
 
 	// The different types of message sent by the Client
 		
-	static final int MESSAGE = 0, LOGOUT = 1, SELL = 2, STATEGOOD = 3, BUYGOOD = 4, TRANSFERGOOD = 5;
+	static final int LOGOUT = 0, SELL = 1, STATEGOOD = 2, BUYGOOD = 3, TRANSFERGOOD = 4;
 	private int type;
 	private String message;
 	

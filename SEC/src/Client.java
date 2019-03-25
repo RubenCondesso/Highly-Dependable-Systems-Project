@@ -21,8 +21,6 @@ public class Client  {
 	//List of goods of the client
 	private static HashMap<String, String> goodsList = new HashMap<String, String>();
 	
-	//List of goods of the client that are for sale
-	//private static HashMap<String, String> goodsToList = new HashMap<String, String>();
 	
 	public String getClientID() {
 		return clientID;
@@ -99,7 +97,7 @@ public class Client  {
 		try
 		{
 			
-			setGoodsClient(clientID + "Maï¿½a", clientID);
+			setGoodsClient(clientID + "Maça", clientID);
 			setGoodsClient(clientID + "Banana", clientID);
 			setGoodsClient(clientID + "Kiwi", clientID);
 									
@@ -115,16 +113,12 @@ public class Client  {
 		return true;
 	}
 
-	/*
-	 * To send a message to the console
-	 */
-	
-	private void display(String msg) {
-
-		System.out.println(msg);
 		
-	}
-	
+	// Client wants to see the state of some specific good (available or not available)
+		private static String getStateOfGood (String good){	
+			return good;
+		}
+			
 	
 	// Client wants to sell some specific good
 	private static String intentionToSell (String good){
@@ -144,30 +138,29 @@ public class Client  {
 		return null;
 	}
 	
-	private static String buyGood(String good) {
-			
-		for (Map.Entry<String, String> item : goodsList.entrySet()) {
-			
-			//the good of the client
-			String key = item.getKey();
-			
-			if (!key.equals(good)){
+	//Client wants to buy a specific good from another client
+	private static String buyGood (String good) {
 				
-				return good;
-			}
-		}
-		
-		return null;
-	}
-		
-		
-	
-	// Client wants to see the state of some specific good (available or not available)
-	private static String getStateOfGood (String good){	
 		return good;
 	}
+		
 	
+	//Ask the server to verify the transfer of goods between clients
+	private static String transferGood (String message) {
+				
+		return message;
+	}
 	
+	/*
+	 * To send a message to the console
+	 */
+	
+	private void display(String msg) {
+
+		System.out.println(msg);
+		
+	}
+			
 	/*
 	 * To send a message to the server
 	 */
@@ -324,27 +317,34 @@ public class Client  {
 			
 			// message to the server to buy some good
 			else if(msg.equalsIgnoreCase("BUYGOOD")) {
-				String goodToBuy = scan.nextLine();
-				goodToBuy=getStateOfGood(goodToBuy);
-				client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD,goodToBuy));
 				
+				System.out.println("Write @Product Owner <space>" + " the goodID that you want to buy from him: ");
 				
+				String msgGoodToBuy = scan.nextLine();
 				
+				msgGoodToBuy = buyGood(msgGoodToBuy);
 				
+				client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, msgGoodToBuy));
 																									
 			}
 			
 			// message to the server to transfer some good
 			else if(msg.equalsIgnoreCase("TRANSFERGOOD")) {
-													
-							
+				
+				System.out.println("Write the goodID that will be transfer <space>" + " buyer ID: ");
+
+				String msgTransfer = scan.nextLine();
+								
+				msgTransfer= transferGood(msgTransfer);
+				
+				client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, msgTransfer));	
 																												
 			}
 			
 			// regular text message
 			else {
 				
-				client.sendMessage(new MessageHandler(MessageHandler.MESSAGE, msg));
+				
 			}
 		}
 		
@@ -368,14 +368,12 @@ public class Client  {
 					
 					// read the message form the input datastream
 					String msg = (String) sInput.readObject();
+					
 					// print the message
 					System.out.println(msg);
+					
 					System.out.print("> ");
-										
-					//if (msg.equals()){
-						
-						//System.out.print("");
-					//}
+															
 				}
 				
 				catch(IOException e) {

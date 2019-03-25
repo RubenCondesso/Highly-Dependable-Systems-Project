@@ -114,6 +114,7 @@ public class Server {
 	
 	// Display an event to the console
 	private void display(String msg) {
+		
 		String time = sdf.format(new Date()) + " " + msg;
 		System.out.println(time);
 	}
@@ -130,17 +131,20 @@ public class Server {
 		boolean isPrivate = false;
 		
 		if(w[1].charAt(0)=='@') 
+			
 			isPrivate=true;
 		
 		
-		// if private message, send message to mentioned clientID only
+		// if private message, send message to mentioned clientID only. (When the option BuyGood is called)
 		if(isPrivate==true)
 		{
 			String tocheck=w[1].substring(1, w[1].length());
 			
 			message=w[0]+w[2];
-			String messageLf = time + " " + message + "\n";
-			boolean found=false;
+			
+			String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + "\n";
+			
+			boolean found=false; 
 			
 			// we loop in reverse order to find the mentioned clientID
 			for(int y=clientsList.size(); --y>=0;){
@@ -368,18 +372,6 @@ public class Server {
 
 				// different actions based on type message
 				switch(msghandler.getType()) {
-
-				case MessageHandler.MESSAGE:
-					
-					boolean confirmation =  broadcast(clientID + ": " + message);
-					
-					if(confirmation==false){
-						
-						String msg = notif + "Sorry. No such user exists." + notif;
-						writeMsg(msg);
-					}
-					
-					break;
 					
 				case MessageHandler.LOGOUT:
 					
@@ -404,10 +396,10 @@ public class Server {
 					    	
 					    	c=1;
 					    	
-					    	//put the good on the list of produts to sell
+					    	//put the good on the list of products to sell
 					    	clientsGoodsToSell.put(key, value);
 					    	
-					    	display("The good you asked is for sale now. ");
+					    	display("The good is now for sale.");
 					    	writeMsg("Yes" + "\n");
 					 
 					    }
@@ -415,7 +407,7 @@ public class Server {
 					//The ClientID and/or his good was not found in the clients goods list    
 					if(c == 0){
 						
-						display("The ClientID and/or his good was not found in the clients goods list.  ");
+						display("The ClientID and/or his good was not found in the clients goods list.");
 						writeMsg("No" + "\n");
 						
 					}
@@ -439,8 +431,9 @@ public class Server {
 					    	
 					    	s=1;
 					    	
-					    	display("The good you asked is for sale. ");
-					    	writeMsg(key + "," + value + "\n");
+					    	display("The good is for sale.");
+					    	
+					    	writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
 					    
 					    }						
 					}
@@ -456,16 +449,104 @@ public class Server {
 					break;
 					
 				case MessageHandler.BUYGOOD:
-					boolean cli =  broadcast(clientID + " wants to buy something from you");
 					
-					if(cli==false){
+					int n=0;
+					
+					boolean cli =  broadcast(clientID + ": " + message);
+					
+					String[] w = message.split(" ",3);			
+			
+					for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
 						
-						String msg = notif + "Sorry. No such user exists." + notif;
-						writeMsg(msg);
+						String key = item.getKey();
+					    String value = item.getValue();
+					    
+					    //Verify if the requested good is for sale 
+					    if (key.equals(w[1])){
+					    	
+					    	n=1;
+							
+							if(cli == false) {
+								
+								String msg = notif + "Sorry. No such user exists." + notif;
+								writeMsg(msg);
+							}
+							
+							else{
+								
+								writeMsg("Yes" +"\n");
+								
+							}
+					    }						
+					}
+					
+					//This good is not for sale   
+					if(n == 0){
+						
+						display("The good you asked is not for sale or does not exist. ");
+						writeMsg("No" + "\n");
+						
 					}
 					
 					break;
 					
+				case MessageHandler.TRANSFERGOOD:
+					
+					String[] m = message.split(" ",3);
+					
+					//The goodID that will be transfer
+					String good = m[0];
+					
+					//The BuyerID
+					String buyer = m[1];
+					
+					int p = 0;
+					
+					for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+						
+						String key = item.getKey();
+					    String value = item.getValue();
+					    
+					    //Verify if the requested good is for sale and if the client it's the owner of the good
+					    if (value.equals(clientID) && key.equals(good)){
+					    		
+					    	for(int y=clientsList.size(); --y>=0;){
+								
+								ClientThread ct1=clientsList.get(y);
+								String check=ct1.getClientID();
+								
+								//Verify if the Buyer is a client on the list
+								if (check.equals(buyer)){
+									
+									p=1;
+									
+									clientsGoodsList.put(key, buyer);
+									
+									clientsGoodsToSell.remove(key, value);					
+									
+									display("The transfer was successful. ");
+									
+									//Tell the seller that the transfer was successful
+									writeMsg("Yes" + "\n");
+									
+									//Tell the buyer that the transfer was successful
+									ct1.writeMsg("Yes" + "\n");
+									
+								}
+					    	}
+						
+					    }						
+					}
+					
+					if(p == 0){
+						
+						display("The transfer was unsuccessful. ");
+						writeMsg("No" + "\n");
+						
+					}
+					
+					
+					break;
 					
 				}
 			}
