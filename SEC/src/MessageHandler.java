@@ -11,21 +11,31 @@ public class MessageHandler implements Serializable {
 
 	// The different types of message sent by the Client
 		
-	static final int LOGOUT = 0, SELL = 1, STATEGOOD = 2, BUYGOOD = 3, TRANSFERGOOD = 4;
+	static final int SETLIST = 0, SELL = 1, STATEGOOD = 2, BUYGOOD = 3, TRANSFERGOOD = 4, Encrypt = 5, LOGOUT=6;
+	
 	private int type;
-	private String message;
+	
+	private static final long serialVersionUID = 1L;
+	
+	byte[] message;
+
 	
 	// constructor
-	MessageHandler(int type, String message) {
+	MessageHandler(int type, byte [] message) {
+		
 		this.type = type;
 		this.message = message;
 	}
 	
 	int getType() {
+		
 		return type;
 	}
-
-	String getMessage() {
+	
+	byte[] getData(){
+		
 		return message;
-	}
+}
+
+	
 }

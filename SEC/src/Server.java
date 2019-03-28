@@ -3,6 +3,16 @@ import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import java.security.*;
+import java.security.spec.RSAPrivateKeySpec;
+import java.math.BigInteger;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+import javax.crypto.*;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+
 // the server that can be run as a console
 public class Server {
 
@@ -29,6 +39,22 @@ public class Server {
 	
 	// notification
 	private String notif = " *** ";
+	
+	private Cipher keyDecipher;
+	
+	private Cipher ServerDecryptCipher;
+	
+	private Cipher ServerEncryptCipher;
+	
+	SecretKey AESKey;
+	
+	static String IV = "AAAAAAAAAAAAAAAA";
+		
+	MessageHandler msgEncrypt;
+	
+	private MessageHandler message;
+	
+	int i;
 			
 	//constructor that receive the port to listen to for connection as parameter
 	
@@ -44,7 +70,8 @@ public class Server {
 		clientsList = new ArrayList<ClientThread>();
 	}
 			
-	public void start() {
+	public void start() throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
+		
 		serverRunning = true;
 		
 		//create socket server and wait for connection requests 
@@ -52,6 +79,8 @@ public class Server {
 		{
 			// the socket used by the server
 			ServerSocket serverSocket = new ServerSocket(port);
+			
+			i=0;
 			
 			// infinite loop to wait for connections ( till server is active )
 			while(serverRunning) 
@@ -70,7 +99,7 @@ public class Server {
 				
 				//add this client to arraylist
 				clientsList.add(t);
-						
+								
 				t.start();
 								
 			}
@@ -78,16 +107,19 @@ public class Server {
 			// try to stop the server
 			try {
 				serverSocket.close();
-				for(int i = 0; i < clientsList.size(); ++i) {
-					ClientThread tc = clientsList.get(i);
+				
+				for(int p = 0; p < clientsList.size(); ++p) {
+					
+					ClientThread tc = clientsList.get(p);
 					
 					try {
 						
-					// close all data streams and socket
-					tc.sInput.close();
-					tc.sOutput.close();
-					tc.socket.close();
+						// close all data streams and socket
+						tc.sInput.close();
+						tc.sOutput.close();
+						tc.socket.close();
 					}
+					
 					catch(IOException ioE) {
 					}
 				}
@@ -97,17 +129,23 @@ public class Server {
 			}
 		}
 		catch (IOException e) {
+			
             String msg = sdf.format(new Date()) + " Exception on new ServerSocket: " + e + "\n";
 			display(msg);
 		}
 	}
 	
+	
 	// to stop the server
 	protected void stop() {
+		
 		serverRunning = false;
+		
 		try {
+			
 			new Socket("localhost", port);
 		}
+		
 		catch(Exception e) {
 		}
 	}
@@ -120,7 +158,7 @@ public class Server {
 	}
 	
 	// to broadcast a message to all Clients
-	private synchronized boolean broadcast(String message) {
+	private synchronized boolean broadcast(String message) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
 		
 		// add timestamp to the message
 		String time = sdf.format(new Date());
@@ -150,6 +188,7 @@ public class Server {
 			for(int y=clientsList.size(); --y>=0;){
 				
 				ClientThread ct1=clientsList.get(y);
+				
 				String check=ct1.getClientID();
 				
 				if(check.equals(tocheck)) {
@@ -163,6 +202,7 @@ public class Server {
 					
 					// clientID found and delivered the message
 					found=true;
+					
 					break;
 				}
 				
@@ -185,14 +225,15 @@ public class Server {
 			
 			// we loop in reverse order in case we would have to remove a Client
 			// because it has disconnected
-			for(int i = clientsList.size(); --i >= 0;) {
+			for(int x = clientsList.size(); --x >= 0;) {
 				
-				ClientThread ct = clientsList.get(i);
+				ClientThread ct = clientsList.get(x);
 				
 				// try to write to the Client if it fails remove it from the list
 				if(!ct.writeMsg(messageLf)) {
 					
-					clientsList.remove(i);
+					clientsList.remove(x);
+					
 					display("Disconnected Client " + ct.clientID + " removed from list.");
 				}
 			}
@@ -203,20 +244,22 @@ public class Server {
 	}
 
 	// if client sent LOGOUT message to exit
-	synchronized void remove(int id) {
+	synchronized void remove(int id) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
 		
 		String disconnectedClient = "";
 		
 		// scan the array list until we found the Id
-		for(int i = 0; i < clientsList.size(); ++i) {
+		for(int k = 0; k < clientsList.size(); ++k) {
 			
-			ClientThread ct = clientsList.get(i);
+			ClientThread ct = clientsList.get(k);
 			
 			// if found remove it
 			if(ct.id == id) {
 				
 				disconnectedClient = ct.getClientID();
-				clientsList.remove(i);
+				
+				clientsList.remove(k);
+				
 				break;
 			}
 		}
@@ -230,16 +273,20 @@ public class Server {
 	 * > java Server portNumber
 	 * If the port number is not specified 1500 is used
 	 */ 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException, GeneralSecurityException {
 		
 		// start server on port 1500 unless a PortNumber is specified 
 		int portNumber = 1500;
 		
 		switch(args.length) {
+		
 			case 1:
+				
 				try {
+					
 					portNumber = Integer.parseInt(args[0]);
 				}
+				
 				catch(Exception e) {
 					
 					System.out.println("Invalid port number.");
@@ -248,13 +295,18 @@ public class Server {
 				}
 				
 			case 0:
+				
 				break;
 				
 			default:
+				
 				System.out.println("Usage is: > java Server [portNumber]");
 				return;
 				
 		}
+		
+		RSA rsa = new RSA();
+		rsa.createRSA();
 			
 		// create a server object and start it
 		Server server = new Server(portNumber);
@@ -282,12 +334,15 @@ public class Server {
 		
 		// timestamp
 		String date;
+		
+			
 
 		// Constructor
-		ClientThread(Socket socket) {
+		ClientThread(Socket socket) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
 			
 			// a unique id
 			id = ++connectionID;
+			
 			this.socket = socket;
 					
 			//Creating both Data Stream
@@ -295,42 +350,15 @@ public class Server {
 			
 			try
 			{
+				
 				sOutput = new ObjectOutputStream(socket.getOutputStream());
-				sInput  = new ObjectInputStream(socket.getInputStream());
-								
-				// read the goods list of the client and his clientID
-			
-				HashMap<String, String> temporaryList = (HashMap<String, String>) sInput.readObject();
-				
-				Object nomeCliente = temporaryList.keySet().toArray()[0];
-								
-				//clientID = (String) sInput.readObject();
-				
-				clientID= temporaryList .get(nomeCliente);
-								
-				broadcast(notif + clientID + " has joined the application " + notif);
-				
-				for (Map.Entry<String, String> item : temporaryList.entrySet()) {
-					
-					//the good of the client
-					String key = item.getKey();
-					
-					//Client name
-				    String value = item.getValue();
-				    
-				    //Add the new client and his goods to the all goods List
-				    clientsGoodsList.put(key, value);
-				    
-				}
+				sInput  = new ObjectInputStream(socket.getInputStream());								
 				
 			}
 			catch (IOException e) {
 				
 				display("Exception creating new Input/output Streams: " + e);
 				return;
-			}
-			
-			catch (ClassNotFoundException e) {
 			}
 			
             date = new Date().toString() + "\n";
@@ -350,15 +378,19 @@ public class Server {
 			
 			// to loop until LOGOUT
 			boolean serverRunning = true;
+			
+			
 			while(serverRunning) {
 				
 				// read a String (which is an object)
 				try {
+											
+					message = (MessageHandler) sInput.readObject(); 								
 					
-					msghandler = (MessageHandler) sInput.readObject();
 				}
 				
 				catch (IOException e) {
+					
 					display(clientID + " Exception reading Streams: " + e);
 					break;				
 				}
@@ -367,205 +399,354 @@ public class Server {
 					break;
 				}
 				
-				// get the message from the MessageHandler object received
-				String message = msghandler.getMessage();
-
-				// different actions based on type message
-				switch(msghandler.getType()) {
-					
-				case MessageHandler.LOGOUT:
-					
-					display(clientID + " disconnected from the application.");
-					serverRunning = false;
-					
-					break;
+				if (i == 0){
 										
-				case MessageHandler.SELL:
-					
-					display("The client " + clientID + " want to sell the following good: " + message);
-										
-					int c=0;
-										
-					for (Map.Entry<String, String> item : clientsGoodsList.entrySet()){
-						
-						String key = item.getKey();
-					    String value = item.getValue();
-					    
-					    // Check if the client it is the owner of the good
-					    if (value.equals(clientID) && key.equals(message)){
-					    	
-					    	c=1;
-					    	
-					    	//put the good on the list of products to sell
-					    	clientsGoodsToSell.put(key, value);
-					    	
-					    	display("The good is now for sale.");
-					    	writeMsg("Yes" + "\n");
-					 
-					    }
-					}
-					//The ClientID and/or his good was not found in the clients goods list    
-					if(c == 0){
-						
-						display("The ClientID and/or his good was not found in the clients goods list.");
-						writeMsg("No" + "\n");
-						
-					}
-					
-					break;
+					if(message.getData() != null){	
+												
+						decryptAESKey(message.getData());
 											
+						i++;
+					}
+					
+					else{
+						
+						display("Error in decrypting AES key in clientThread.run()"); 
+						
+						System.exit(1);
+					}
+					
+				}
 				
-				case MessageHandler.STATEGOOD:
+				else {
 					
-					display("The client " + clientID + " want to check the state of the following good: " + message);
-					
-					int s=0;
-					
-					for (Map.Entry<String, String> item0 : clientsGoodsList.entrySet()){
-					
-					    String checkCliente = item0.getValue();
-					    
-					    // Check if the client exists on the application 
-					    if (checkCliente.equals(clientID)){
-					    	
-					    	for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+
+					if(message.getData() != null){
+													
+						decryptMessage(message.getData());
+												
+						
+						// different actions based on type message
+						switch(message.getType()) {
+						
+						case MessageHandler.SETLIST:
+							
+							//System.out.println("Mensagem recebida: " + mensagem);
+							
+							// read the goods list of the client and his clientID
+							//HashMap<String, String> temporaryList = (HashMap<String, String>) mensagem.toString();
+							
+							//Object nomeCliente = temporaryList.keySet().toArray()[0];
+											
+							//clientID = (String) sInput.readObject();
+							
+							//clientID= temporaryList .get(nomeCliente);
+																		
+							// broadcast(notif + clientID + " has joined the application " + notif);
+							
+							//i++;
+							
+							//for (Map.Entry<String, String> item : temporaryList.entrySet()) {
+								
+								//the good of the client
+								//String key = item.getKey();
+								
+								//Client name
+							    //String value = item.getValue();
+							    
+							    //Add the new client and his goods to the all goods List
+							    //clientsGoodsList.put(key, value);
+							    
+							//}
+							
+							break;
+							
+						case MessageHandler.LOGOUT:
+							
+							display(clientID + " disconnected from the application.");
+							serverRunning = false;
+							
+							break;
+												
+						case MessageHandler.SELL:
+							
+							display("The client " + clientID + " want to sell the following good: " + message);
+												
+							int c=0;
+												
+							for (Map.Entry<String, String> item : clientsGoodsList.entrySet()){
 								
 								String key = item.getKey();
 							    String value = item.getValue();
 							    
-							    //Verify if the requested good is on sale 
-							    if (key.equals(message)){
+							    // Check if the client it is the owner of the good
+							    if (value.equals(clientID) && key.equals(message)){
 							    	
-							    	s=1;
+							    	c=1;
 							    	
-							    	display("The good is for sale.");
+							    	//put the good on the list of products to sell
+							    	clientsGoodsToSell.put(key, value);
 							    	
-							    	writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
+							    	display("The good is now for sale.");
+							    	
+							    	try {
+							    		
+										writeMsg("Yes" + "\n");
+										
+									} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+											| InvalidAlgorithmParameterException | IllegalBlockSizeException
+											| BadPaddingException e) {
+										
+										e.printStackTrace();
+									}
+							 
+							    }
+							}
+							//The ClientID and/or his good was not found in the clients goods list    
+							if(c == 0){
+								
+								display("The ClientID and/or his good was not found in the clients goods list.");
+								
+								try {
+									
+									writeMsg("No" + "\n");
+									
+								} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+										| InvalidAlgorithmParameterException | IllegalBlockSizeException
+										| BadPaddingException e) {
+									
+									e.printStackTrace();
+								}
+								
+							}
+							
+							break;
+													
+						
+						case MessageHandler.STATEGOOD:
+							
+							display("The client " + clientID + " want to check the state of the following good: " + message);
+							
+							int s=0;
+							
+							for (Map.Entry<String, String> item0 : clientsGoodsList.entrySet()){
+							
+							    String checkCliente = item0.getValue();
 							    
-							    }						
-							}
-					    	
-					    }
-					}
-					
-															
-					//This good is not for sale   
-					if(s == 0){
-						
-						display("The good you asked is not for sale or does not exist or your ID does not exist in the application");
-						writeMsg("No" + "\n");
-						
-					}
-					
-					break;
-					
-				case MessageHandler.BUYGOOD:
-					
-					int n=0;
-					
-					boolean cli =  broadcast(clientID + ": " + message);
-					
-					String[] w = message.split(" ",3);			
-			
-					for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-						
-						String key = item.getKey();
-					    String value = item.getValue();
-					    
-					    //Verify if the requested good is for sale 
-					    if (key.equals(w[1])){
-					    	
-					    	n=1;
-							
-							if(cli == false) {
-								
-								String msg = notif + "Sorry. No such user exists." + notif;
-								writeMsg(msg);
+							    // Check if the client exists on the application 
+							    if (checkCliente.equals(clientID)){
+							    	
+							    	for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+										
+										String key = item.getKey();
+									    String value = item.getValue();
+									    
+									    //Verify if the requested good is on sale 
+									    if (key.equals(message)){
+									    	
+									    	s=1;
+									    	
+									    	display("The good is for sale.");
+									    	
+									    	try {
+									    		
+												writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
+												
+											} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+													| InvalidAlgorithmParameterException | IllegalBlockSizeException
+													| BadPaddingException e) {
+											
+												e.printStackTrace();
+											}
+									    
+									    }						
+									}
+							    	
+							    }
 							}
 							
-							else{
+																	
+							//This good is not for sale   
+							if(s == 0){
 								
-								writeMsg("Yes" +"\n");
+								display("The good you asked is not for sale or does not exist or your ID does not exist in the application");
+								
+								try {
+									
+									writeMsg("No" + "\n");
+									
+								} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+										| InvalidAlgorithmParameterException | IllegalBlockSizeException
+										| BadPaddingException e) {
+									
+								
+									e.printStackTrace();
+								}
 								
 							}
-					    }						
-					}
-					
-					//This good is not for sale   
-					if(n == 0){
-						
-						display("The good you asked is not for sale or does not exist. ");
-						writeMsg("No" + "\n");
-						
-					}
-					
-					break;
-					
-				case MessageHandler.TRANSFERGOOD:
-					
-					String[] m = message.split(" ",3);
-					
-					//The goodID that will be transfer
-					String good = m[0];
-					
-					//The BuyerID
-					String buyer = m[1];
-					
-					int p = 0;
-					
-					for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-						
-						String key = item.getKey();
-					    String value = item.getValue();
-					    
-					    //Verify if the requested good is for sale and if the client it's the owner of the good
-					    if (value.equals(clientID) && key.equals(good)){
-					    		
-					    	for(int y=clientsList.size(); --y>=0;){
+							
+							break;
+							
+						case MessageHandler.BUYGOOD:
+							
+							int n=0;
+							
+							boolean cli;
+							
+							try {
 								
-								ClientThread ct1=clientsList.get(y);
-								String check=ct1.getClientID();
+								cli = broadcast(clientID + ": " + message);
 								
-								//Verify if the Buyer is a client on the list
-								if (check.equals(buyer)){
+								String[] w = (message.toString()).split(" ",3);			
+								
+								for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
 									
-									p=1;
+									String key = item.getKey();
+								    String value = item.getValue();
+								    
+								    //Verify if the requested good is for sale 
+								    if (key.equals(w[1])){
+								    	
+								    	n=1;
+										
+										if(cli == false) {
+											
+											String msg = notif + "Sorry. No such user exists." + notif;
+											writeMsg(msg);
+										}
+										
+										else{
+											
+											writeMsg("Yes" +"\n");
+											
+										}
+								    }						
+								}
+								
+								//This good is not for sale   
+								if(n == 0){
 									
-									clientsGoodsList.put(key, buyer);
-									
-									clientsGoodsToSell.remove(key, value);					
-									
-									display("The transfer was successful. ");
-									
-									//Tell the seller that the transfer was successful
-									writeMsg("Yes" + "\n");
-									
-									//Tell the buyer that the transfer was successful
-									ct1.writeMsg("Yes" + "\n");
+									display("The good you asked is not for sale or does not exist. ");
+									writeMsg("No" + "\n");
 									
 								}
-					    	}
-						
-					    }						
+								
+								break;
+								
+							} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+									| InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+							
+								e.printStackTrace();
+							}
+							
+							
+						case MessageHandler.TRANSFERGOOD:
+							
+							String[] m = (message.toString()).split(" ",3);
+							
+							//The goodID that will be transfer
+							String good = m[0];
+							
+							//The BuyerID
+							String buyer = m[1];
+							
+							int p = 0;
+							
+							for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+								
+								String key = item.getKey();
+							    String value = item.getValue();
+							    
+							    //Verify if the requested good is for sale and if the client it's the owner of the good
+							    if (value.equals(clientID) && key.equals(good)){
+							    		
+							    	for(int y=clientsList.size(); --y>=0;){
+										
+										ClientThread ct1=clientsList.get(y);
+										String check=ct1.getClientID();
+										
+										//Verify if the Buyer is a client on the list
+										if (check.equals(buyer)){
+											
+											p=1;
+											
+											clientsGoodsList.put(key, buyer);
+											
+											clientsGoodsToSell.remove(key, value);					
+											
+											display("The transfer was successful. ");
+											
+											//Tell the seller that the transfer was successful
+											try {
+												
+												writeMsg("Yes" + "\n");
+												
+											} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+													| InvalidAlgorithmParameterException | IllegalBlockSizeException
+													| BadPaddingException e) {
+												
+												e.printStackTrace();
+											}
+											
+											//Tell the buyer that the transfer was successful
+											try {
+												
+												ct1.writeMsg("Yes" + "\n");
+												
+											} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+													| InvalidAlgorithmParameterException | IllegalBlockSizeException
+													| BadPaddingException e) {
+												
+												e.printStackTrace();
+											}
+											
+										}
+							    	}
+								
+							    }						
+							}
+							
+							if(p == 0){
+								
+								display("The transfer was unsuccessful. ");
+								
+								try {
+									
+									writeMsg("No" + "\n");
+									
+								} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+										| InvalidAlgorithmParameterException | IllegalBlockSizeException
+										| BadPaddingException e) {
+									
+									e.printStackTrace();
+								}
+								
+							}
+							
+							
+							break;
+							
+						}
 					}
-					
-					if(p == 0){
-						
-						display("The transfer was unsuccessful. ");
-						writeMsg("No" + "\n");
-						
-					}
-					
-					
-					break;
 					
 				}
+							
+						
 			}
 			
 			// if out of the loop then disconnected and remove from client list
-			remove(id);
+			try {
+				
+				remove(id);
+				
+			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+					| InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+				
+				e.printStackTrace();
+			}
 			close();
 		}
+		
+		
 		
 		// close everything
 		private void close() {
@@ -584,7 +765,7 @@ public class Server {
 		}
 
 		// write a String to the Client output stream
-		private boolean writeMsg(String msg) {
+		private boolean writeMsg(String msg) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException  {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -595,7 +776,14 @@ public class Server {
 			
 			// write the message to the stream
 			try {
-				sOutput.writeObject(msg);
+				
+				System.out.println("Mensagem a enviar" + msg);
+				
+				msgEncrypt = null;
+				
+				msgEncrypt = new MessageHandler(5, encryptMessage(msg));
+				
+				sOutput.writeObject(msgEncrypt);
 			}
 			
 			// if an error occurs, do not abort just inform the user
@@ -603,8 +791,165 @@ public class Server {
 				
 				display(notif + "Error sending message to " + clientID + notif);
 				display(e.toString());
-			}
+				
+			} 
+			
 			return true;
 		}
 	}
+	
+	
+	 /*
+	   * // ====== Receive the encrypted AES key from server and decipher it
+	   * decryptAESKey method
+	   * 					will use RSA private key from the public - private key pair to
+	   * 					decipher the AES key encrypted using public key and sent by the client.
+	   * 
+	   * @param byte[] encryptedData
+	   * 							The encrypted key as byte array.
+	   * 
+	   */
+	private void decryptAESKey(byte[] encryptedKey) {
+		
+		SecretKey key = null; 
+		
+		PrivateKey privKey = null; 
+		
+		keyDecipher = null;
+		
+	    try {
+	            privKey = readPrivateKeyFromFile("private.key"); 			//  private key
+	            
+	            keyDecipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); 		// initialize the cipher...
+	            
+	            keyDecipher.init(Cipher.DECRYPT_MODE, privKey );
+	            
+	            key = new SecretKeySpec (keyDecipher.doFinal(encryptedKey), "AES");
+	            
+	            //System.out.println();
+	            //System.out.println(" AES key after decryption : " + key);
+	            
+	            i=1;
+	            
+	            AESKey =  key;
+	        }
+	    
+	        catch(Exception e){  
+	        	
+	        	e.printStackTrace(); 
+	         
+	        	System.out.println ( "exception decrypting the aes key: "  + e.getMessage() );
+	        }
+	       
+	    }
+	
+	
+	/*
+	 * //=========== Decipher/decrypt the encrypted message using AES key =================
+	 * 
+	 * decryptMessage method.
+	 * 						Deciphers the encrypted message received from the client.
+	 * 						Takes byte array of the encrypted message as input.
+	 * 
+	 * 
+	 */
+		
+	private void decryptMessage(byte[] encryptedMessage) {
+		
+		ServerDecryptCipher = null;
+				
+		System.out.println ( "Mensagem encriptada recebida: "  + Arrays.toString(encryptedMessage));
+	        
+		try
+	        {
+	            ServerDecryptCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+	            
+	            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()));
+	            
+	            byte[] msg = ServerDecryptCipher.doFinal(encryptedMessage);
+	            
+	            System.out.println("Server: INCOMING Message From CLIENT >> " + new String (msg));
+	            	            
+	            //return new String(msg);
+	            
+	            
+	        }
+	        
+		catch(Exception e)
+		{
+	        	e.getCause();
+	        	
+	        	e.printStackTrace();
+	        	
+	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
+	    }
+		
+		//return null;
+	    
+	}
+	
+	
+	
+	/*
+	 * //===========  Encrypted message using AES key =================
+	 * 
+	 * encryptMessage method
+	 * 						Takes the message string as input and encrypts it.
+	 * 
+	 * 
+	 */
+	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
+						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
+										BadPaddingException{
+		ServerEncryptCipher = null;
+		
+		byte[] cipherText = null;
+		
+		ServerEncryptCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");  
+		
+		ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()) );
+		
+		cipherText = ServerEncryptCipher.doFinal(s.getBytes());
+	
+	   return cipherText;
+	   
+	}
+		
+	
+	/*
+	 * // ================= Read private Key from the file======================= 
+	 * 
+	 * readPrivateKeyFromFile method
+	 * 								reads the RSA private key from private.key file saved in same directory.
+	 * 								the private key is used to decrypt/decipher the AES key sent by Client.
+	 * 
+	 */	
+	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
+		
+		FileInputStream in = new FileInputStream(fileName);
+		
+	  	ObjectInputStream readObj =  new ObjectInputStream(new BufferedInputStream(in));
+
+	  	try {
+	  		
+	  	  BigInteger m = (BigInteger) readObj.readObject();
+	  	  BigInteger d = (BigInteger) readObj.readObject();
+	  	  
+	  	  RSAPrivateKeySpec keySpec = new RSAPrivateKeySpec(m, d);
+	  	  KeyFactory fact = KeyFactory.getInstance("RSA");
+	  	  PrivateKey priKey = fact.generatePrivate(keySpec);
+	  	  
+	  	  return priKey;
+	  	  
+	  	} catch (Exception e) {
+	  		
+	  		  throw new RuntimeException("Some error in reading private key", e);
+	  		  
+	  	} finally {
+	  		
+	 	   readObj.close();
+	 	}
+	}
+	
+	
 }
