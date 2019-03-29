@@ -37,7 +37,7 @@ public class RSA {
 	
 		public static void main(String[] args) throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
 			
-			System.out.println("Creating RSA class");
+			// System.out.println("Creating RSA class");
 			
 			RSA rsa = new RSA();
 			
@@ -64,7 +64,7 @@ public class RSA {
 			
 			publicKey = kPair.getPublic();
 			
-			System.out.println(publicKey);
+			// System.out.println(publicKey);
 			
 			privateKey = kPair.getPrivate();
 	 
@@ -98,7 +98,7 @@ public class RSA {
 		  		
 		  		ObjOut.writeObject(exp);
 		  		
-		  		System.out.println("Key File Created: " + fileName);
+		  		// System.out.println("Key File Created: " + fileName);
 		  		
 		 	 } catch (Exception e) {
 		 		 

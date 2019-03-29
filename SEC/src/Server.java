@@ -92,6 +92,7 @@ public class Server {
 				
 				// break if server stoped
 				if(!serverRunning)
+					
 					break;
 				
 				// if client is connected, create its thread
@@ -183,7 +184,7 @@ public class Server {
 			String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + "\n";
 			
 			boolean found=false; 
-			
+						
 			// we loop in reverse order to find the mentioned clientID
 			for(int y=clientsList.size(); --y>=0;){
 				
@@ -385,7 +386,7 @@ public class Server {
 				// read a String (which is an object)
 				try {
 											
-					message = (MessageHandler) sInput.readObject(); 								
+					message = (MessageHandler) sInput.readObject(); 
 					
 				}
 				
@@ -399,6 +400,7 @@ public class Server {
 					break;
 				}
 				
+				//In the first message received by the client, the server will decrypt the AES Key from the client
 				if (i == 0){
 										
 					if(message.getData() != null){	
@@ -419,45 +421,63 @@ public class Server {
 				
 				else {
 					
-
+					// Server will decrypt the normal messages from the Client
 					if(message.getData() != null){
 													
-						decryptMessage(message.getData());
+						String mensagemDecryt = decryptMessage(message.getData());
 												
 						
 						// different actions based on type message
 						switch(message.getType()) {
 						
-						case MessageHandler.SETLIST:
+						case MessageHandler.ENTER:
+														
+							//Convert the message received to a HashMap
+							mensagemDecryt = mensagemDecryt.substring(1, mensagemDecryt.length()-1); //remove curly brackets
 							
-							//System.out.println("Mensagem recebida: " + mensagem);
+							String[] keyValuePairs = mensagemDecryt.split(",");              //split the string to creat key-value pairs
 							
+							Map <String,String> map = new HashMap<>();               
+
+							for(String pair : keyValuePairs)                        //iterate over the pairs
+							{
+							    String[] entry = pair.split("=");                   //split the pairs to get key and value 
+							    map.put(entry[0].trim(), entry[1].trim());          //add them to the hashmap and trim whitespaces
+							}
+														
 							// read the goods list of the client and his clientID
-							//HashMap<String, String> temporaryList = (HashMap<String, String>) mensagem.toString();
+							HashMap<String, String> temporaryList = (HashMap<String, String>) map;
 							
-							//Object nomeCliente = temporaryList.keySet().toArray()[0];
-											
-							//clientID = (String) sInput.readObject();
-							
-							//clientID= temporaryList .get(nomeCliente);
+							Object nomeCliente = temporaryList.keySet().toArray()[0];
 																		
-							// broadcast(notif + clientID + " has joined the application " + notif);
+							clientID= temporaryList.get(nomeCliente);
+																									
+							try {
+								
+								broadcast(notif + clientID + " has joined the application " + notif);
+							} 
+							catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+									| InvalidAlgorithmParameterException | IllegalBlockSizeException
+									| BadPaddingException e1) {
+								
+								e1.printStackTrace();
+							}
 							
-							//i++;
+							i++;
 							
-							//for (Map.Entry<String, String> item : temporaryList.entrySet()) {
+							for (Map.Entry<String, String> item : temporaryList.entrySet()) {
 								
 								//the good of the client
-								//String key = item.getKey();
+								String key = item.getKey();
 								
 								//Client name
-							    //String value = item.getValue();
+							    String value = item.getValue();
 							    
 							    //Add the new client and his goods to the all goods List
-							    //clientsGoodsList.put(key, value);
+							    clientsGoodsList.put(key, value);
 							    
-							//}
-							
+							}
+														
 							break;
 							
 						case MessageHandler.LOGOUT:
@@ -469,7 +489,7 @@ public class Server {
 												
 						case MessageHandler.SELL:
 							
-							display("The client " + clientID + " want to sell the following good: " + message);
+							display("The client " + clientID + " want to sell the following good: " + mensagemDecryt);
 												
 							int c=0;
 												
@@ -479,7 +499,7 @@ public class Server {
 							    String value = item.getValue();
 							    
 							    // Check if the client it is the owner of the good
-							    if (value.equals(clientID) && key.equals(message)){
+							    if (value.equals(clientID) && key.equals(mensagemDecryt)){
 							    	
 							    	c=1;
 							    	
@@ -524,7 +544,7 @@ public class Server {
 						
 						case MessageHandler.STATEGOOD:
 							
-							display("The client " + clientID + " want to check the state of the following good: " + message);
+							display("The client " + clientID + " want to check the state of the following good: " + mensagemDecryt);
 							
 							int s=0;
 							
@@ -539,9 +559,9 @@ public class Server {
 										
 										String key = item.getKey();
 									    String value = item.getValue();
-									    
+									    									    
 									    //Verify if the requested good is on sale 
-									    if (key.equals(message)){
+									    if (key.equals(mensagemDecryt) && (s != 1)){
 									    	
 									    	s=1;
 									    	
@@ -594,9 +614,9 @@ public class Server {
 							
 							try {
 								
-								cli = broadcast(clientID + ": " + message);
+								cli = broadcast(clientID + ": " + mensagemDecryt);
 								
-								String[] w = (message.toString()).split(" ",3);			
+								String[] w = (mensagemDecryt.toString()).split(" ",3);			
 								
 								for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
 									
@@ -641,7 +661,7 @@ public class Server {
 							
 						case MessageHandler.TRANSFERGOOD:
 							
-							String[] m = (message.toString()).split(" ",3);
+							String[] m = (mensagemDecryt.toString()).split(" ",3);
 							
 							//The goodID that will be transfer
 							String good = m[0];
@@ -750,6 +770,7 @@ public class Server {
 		
 		// close everything
 		private void close() {
+					
 			try {
 				if(sOutput != null) sOutput.close();
 			}
@@ -769,20 +790,18 @@ public class Server {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
-				
+						
 				close();
 				return false;
 			}
 			
 			// write the message to the stream
 			try {
-				
-				System.out.println("Mensagem a enviar" + msg);
-				
+												
 				msgEncrypt = null;
 				
 				msgEncrypt = new MessageHandler(5, encryptMessage(msg));
-				
+								
 				sOutput.writeObject(msgEncrypt);
 			}
 			
@@ -854,11 +873,9 @@ public class Server {
 	 * 
 	 */
 		
-	private void decryptMessage(byte[] encryptedMessage) {
+	private String decryptMessage(byte[] encryptedMessage) {
 		
 		ServerDecryptCipher = null;
-				
-		System.out.println ( "Mensagem encriptada recebida: "  + Arrays.toString(encryptedMessage));
 	        
 		try
 	        {
@@ -867,10 +884,8 @@ public class Server {
 	            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()));
 	            
 	            byte[] msg = ServerDecryptCipher.doFinal(encryptedMessage);
-	            
-	            System.out.println("Server: INCOMING Message From CLIENT >> " + new String (msg));
-	            	            
-	            //return new String(msg);
+	            	            	            
+	            return new String(msg);
 	            
 	            
 	        }
@@ -884,7 +899,7 @@ public class Server {
 	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
 	    }
 		
-		//return null;
+		return null;
 	    
 	}
 	

@@ -178,11 +178,10 @@ public class Client  {
 		try {
 			
 			if(i==0){
-				
-				System.out.print("Entrei para i=0" + "\n");
-				
+						
 				msgEncrypt = null;
-				   
+				
+				//Client will encrypt his AEK key   
 				msgEncrypt = new MessageHandler(5, encryptAESKey());
 							 
 				sOutput.writeObject(msgEncrypt);
@@ -191,10 +190,11 @@ public class Client  {
 			
 			else {
 				
-				System.out.print("Entrei para i>0 " + "\n");
+				msgEncrypt = null;
 				
+				//Client will send a normal message encrypted				
 				msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())));
-				
+								
 				sOutput.writeObject(msgEncrypt);
 				
 			}
@@ -261,7 +261,6 @@ public class Client  {
 			// System.out.println("Encrypting the AES key using RSA Public Key" + pK);
    	     
 			// initialize the cipher with the user's public key
-   	     
 			cipher1 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
    	    
    	     	cipher1.init(Cipher.ENCRYPT_MODE, pK );
@@ -324,9 +323,7 @@ public class Client  {
 		long totalAES = time4 - time3;
 	
 		// System.out.println("Time taken by AES Encryption (Nano Seconds) " + totalAES);
-		
-		System.out.println("Chave encriptada: " + Arrays.toString(cipherText));
-	   
+			   
 		return cipherText;
 	}
 	
@@ -500,13 +497,15 @@ public class Client  {
 			
 			return;
 		
+		//First Message between server and client
 		String testeInicial = "Teste";
 			
 		byte[] testeBytes = testeInicial.getBytes();
-				
+		
+		//Send AES Key of Client to server
 		client.sendMessage(new MessageHandler(MessageHandler.Encrypt, testeBytes));
 		
-		System.out.println("1. Type 'SETLIST' to create your list of goods");
+		System.out.println("1. Type 'ENTER' to enter in the application");
 		
 		// infinite loop to get the input from the user
 		while(true) {
@@ -516,120 +515,132 @@ public class Client  {
 			// read message from user
 			String msg = scan.nextLine();
 			
-			// logout if message is LOGOUT
-			if(msg.equalsIgnoreCase("LOGOUT")) {
+			if (i == 0){
 				
-				String temp = "";
-				
-				byte[] tempBytes = temp.getBytes();
-				
-				System.out.println(Arrays.toString(tempBytes));
-								
-				client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes));
-				
-				break;
-			}
-			
-			else if (msg.equalsIgnoreCase("SETLIST")){
-				
-				System.out.println("\nHello.! Welcome to HDS Notary Application");
-				System.out.println("1. Type the message to send broadcast to all active clients");
-				System.out.println("2. Type '@clientID<space>yourmessage' to send message to desired client");
-				System.out.println("3. Type 'SELL' to inform the server that you want to sell some good");
-				System.out.println("4. Type 'STATEGOOD' to see if some specific good is available for sell");
-				System.out.println("5. Type 'BUYGOOD' to buy a good");
-				System.out.println("6. Type 'LOGOUT' to logoff from server");
-				
-				setGoodsClient(clientID + "Maça", clientID);
-				setGoodsClient(clientID + "Banana", clientID);
-				setGoodsClient(clientID + "Kiwi", clientID);
-											
-				//String temp =getGoodsClient().toString();
-				
-				String temp = "Ola";
-																				
-				client.sendMessage(new MessageHandler(MessageHandler.SETLIST, temp.getBytes()));
-				
-				break;
-				
-			}
-			
+				if (msg.equalsIgnoreCase("ENTER")){
 					
-			// message to inform server that client want to sell some good
-			else if(msg.equalsIgnoreCase("SELL")) {
-				
-				System.out.println("Write the good you want to sell: ");
-				
-				String msgGoodToServer = scan.nextLine();
-				
-				msgGoodToServer=intentionToSell(msgGoodToServer);
-				
-				//The good was found in the good's list
-				if(msgGoodToServer != null){
+					System.out.println("\nHello.! Welcome to HDS Notary Application");
+					System.out.println("1. Type the message to send broadcast to all active clients");
+					System.out.println("2. Type '@clientID<space>yourmessage' to send message to desired client");
+					System.out.println("3. Type 'SELL' to inform the server that you want to sell some good");
+					System.out.println("4. Type 'STATEGOOD' to see if some specific good is available for sell");
+					System.out.println("5. Type 'BUYGOOD' to buy a good");
+					System.out.println("6. Type 'LOGOUT' to logoff from server");
 					
-					byte[] tempBytes = msgGoodToServer.getBytes();
+					setGoodsClient(clientID + "Maça", clientID);
+					setGoodsClient(clientID + "Banana", clientID);
+					setGoodsClient(clientID + "Kiwi", clientID);
+												
+					String temp =getGoodsClient().toString();
+																					
+					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes()));
 					
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes));	
+					i=1;
 					
 				}
 				
 				else{
 					
-					System.out.println("Something went wrong. The good you typed is not in your good's list. ");
+					System.out.println("Wrong, type again!! 1. Type 'ENTER' to enter in the application");
+					
 				}
 				
 			}
 			
-			// message to the server to get the state of some good
-			else if(msg.equalsIgnoreCase("STATEGOOD")) {
-							
-				System.out.println("Write the product of which the state you want to check: ");
-							
-				String msgGoodStateToServer = scan.nextLine();
-							
-				msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
-				
-				byte[] tempBytes =msgGoodStateToServer.getBytes();
-														
-				client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes));	
-																						
-			}
 			
-			// message to the server to buy some good
-			else if(msg.equalsIgnoreCase("BUYGOOD")) {
-				
-				System.out.println("Write @Product Owner <space>" + " the goodID that you want to buy from him: ");
-				
-				String msgGoodToBuy = scan.nextLine();
-				
-				msgGoodToBuy = buyGood(msgGoodToBuy);
-				
-				byte[] tempBytes = msgGoodToBuy.getBytes();
-				
-				client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes));
-																									
-			}
-			
-			// message to the server to transfer some good
-			else if(msg.equalsIgnoreCase("TRANSFERGOOD")) {
-				
-				System.out.println("Write the goodID that will be transfer <space>" + " buyer ID: ");
-
-				String msgTransfer = scan.nextLine();
-								
-				msgTransfer= transferGood(msgTransfer);
-				
-				byte[] tempBytes = msgTransfer.getBytes();
-				
-				client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes));	
-																												
-			}
-			
-			// regular text message
 			else {
 				
+				// logout if message is LOGOUT
+				if(msg.equalsIgnoreCase("LOGOUT")) {
+					
+					String temp = "";
+					
+					byte[] tempBytes = temp.getBytes();
+													
+					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes));
+					
+					break;
+				}
+									
+				// message to inform server that client want to sell some good
+				else if(msg.equalsIgnoreCase("SELL")) {
+					
+					System.out.println("Write the good you want to sell: ");
+					
+					String msgGoodToServer = scan.nextLine();
+					
+					msgGoodToServer=intentionToSell(msgGoodToServer);
+					
+					//The good was found in the good's list
+					if(msgGoodToServer != null){
+						
+						byte[] tempBytes = msgGoodToServer.getBytes();
+						
+						client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes));	
+						
+					}
+					
+					else{
+						
+						System.out.println("Something went wrong. The good you typed is not in your good's list. ");
+					}
+					
+				}
+				
+				// message to the server to get the state of some good
+				else if(msg.equalsIgnoreCase("STATEGOOD")) {
+								
+					System.out.println("Write the product of which the state you want to check: ");
+								
+					String msgGoodStateToServer = scan.nextLine();
+								
+					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
+					
+					byte[] tempBytes =msgGoodStateToServer.getBytes();
+															
+					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes));	
+																							
+				}
+				
+				// message to the server to buy some good
+				else if(msg.equalsIgnoreCase("BUYGOOD")) {
+					
+					System.out.println("Write @Product Owner <space>" + " the goodID that you want to buy from him: ");
+					
+					String msgGoodToBuy = scan.nextLine();
+					
+					msgGoodToBuy = buyGood(msgGoodToBuy);
+					
+					byte[] tempBytes = msgGoodToBuy.getBytes();
+					
+					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes));
+																										
+				}
+				
+				// message to the server to transfer some good
+				else if(msg.equalsIgnoreCase("TRANSFERGOOD")) {
+					
+					System.out.println("Write the goodID that will be transfer <space>" + " buyer ID: ");
+
+					String msgTransfer = scan.nextLine();
+									
+					msgTransfer= transferGood(msgTransfer);
+					
+					byte[] tempBytes = msgTransfer.getBytes();
+					
+					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes));	
+																													
+				}
+				
+				// regular text message
+				else {
+					
+					
+				}
 				
 			}
+			
+
 		}
 		
 		// close resource
@@ -655,10 +666,10 @@ public class Client  {
 					// read the message form the input datastream
 					message = (MessageHandler) sInput.readObject();
 					
-					decryptMessage(message.getData());
+					String msgDecrypt = decryptMessage(message.getData());
 					
 					// print the message
-					System.out.println("Mensagem recebida: " + message);
+					System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
 					
 					System.out.print("> ");
 															
