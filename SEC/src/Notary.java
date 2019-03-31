@@ -14,7 +14,7 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 // the server that can be run as a console
-public class Server {
+public class Notary {
 
 	// a unique ID for each connection
 	private static int connectionID;
@@ -59,7 +59,7 @@ public class Server {
 				
 	//constructor that receive the port to listen to for connection as parameter
 	
-	public Server(int port) {
+	public Notary(int port) {
 		
 		// the port
 		this.port = port;
@@ -310,7 +310,7 @@ public class Server {
 		rsa.createRSA();
 			
 		// create a server object and start it
-		Server server = new Server(portNumber);
+		Notary server = new Notary(portNumber);
 		
 		server.start();
 		
@@ -948,6 +948,8 @@ public class Server {
 		ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()) );
 		
 		cipherText = ServerEncryptCipher.doFinal(s.getBytes());
+		
+		
 	
 	   return cipherText;
 	   
