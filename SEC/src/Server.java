@@ -2,7 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
-
+import java.util.Map.Entry;
 import java.security.*;
 import java.security.spec.RSAPrivateKeySpec;
 import java.math.BigInteger;
@@ -28,6 +28,9 @@ public class Server {
 	// HashMap to keep the goods to sell of each Client
 	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
 	
+	// HashMap with the AESKeys of each client of the application
+	private HashMap <SecretKey, Integer> listAESKeys = new HashMap <SecretKey, Integer>();
+	
 	// to display time
 	private SimpleDateFormat sdf;
 	
@@ -47,15 +50,13 @@ public class Server {
 	private Cipher ServerEncryptCipher;
 	
 	SecretKey AESKey;
-	
+		
 	static String IV = "AAAAAAAAAAAAAAAA";
 		
 	MessageHandler msgEncrypt;
 	
 	private MessageHandler message;
-	
-	int i;
-			
+				
 	//constructor that receive the port to listen to for connection as parameter
 	
 	public Server(int port) {
@@ -79,9 +80,7 @@ public class Server {
 		{
 			// the socket used by the server
 			ServerSocket serverSocket = new ServerSocket(port);
-			
-			i=0;
-			
+					
 			// infinite loop to wait for connections ( till server is active )
 			while(serverRunning) 
 			{
@@ -195,7 +194,7 @@ public class Server {
 				if(check.equals(tocheck)) {
 					
 					// try to write to the Client if it fails remove it from the list
-					if(!ct1.writeMsg(messageLf)) {
+					if(!ct1.writeMsg(messageLf, ct1.getConnectionID())) {
 						
 						clientsList.remove(y);
 						display("Disconnected Client " + ct1.clientID + " removed from list.");
@@ -230,8 +229,9 @@ public class Server {
 				
 				ClientThread ct = clientsList.get(x);
 				
+				
 				// try to write to the Client if it fails remove it from the list
-				if(!ct.writeMsg(messageLf)) {
+				if(!ct.writeMsg(messageLf, ct.getConnectionID())) {
 					
 					clientsList.remove(x);
 					
@@ -373,6 +373,10 @@ public class Server {
 			this.clientID = clientID;
 		}
 		
+		public Integer getConnectionID() {
+			return id;
+		}
+		
 		
 		// infinite loop to read and forward message
 		public void run() {
@@ -380,6 +384,7 @@ public class Server {
 			// to loop until LOGOUT
 			boolean serverRunning = true;
 			
+			int i = 0;
 			
 			while(serverRunning) {
 				
@@ -387,7 +392,7 @@ public class Server {
 				try {
 											
 					message = (MessageHandler) sInput.readObject(); 
-					
+										
 				}
 				
 				catch (IOException e) {
@@ -405,7 +410,7 @@ public class Server {
 										
 					if(message.getData() != null){	
 												
-						decryptAESKey(message.getData());
+						decryptAESKey(message.getData(), id);
 											
 						i++;
 					}
@@ -423,6 +428,15 @@ public class Server {
 					
 					// Server will decrypt the normal messages from the Client
 					if(message.getData() != null){
+						
+						for (Entry<SecretKey, Integer> entry : listAESKeys.entrySet()){
+							
+							if((entry.getValue()).equals(getConnectionID())){
+								
+								AESKey = entry.getKey();
+							}
+							
+						}
 													
 						String mensagemDecryt = decryptMessage(message.getData());
 												
@@ -510,7 +524,7 @@ public class Server {
 							    	
 							    	try {
 							    		
-										writeMsg("Yes" + "\n");
+										writeMsg("Yes" + "\n", getConnectionID());
 										
 									} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 											| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -528,7 +542,7 @@ public class Server {
 								
 								try {
 									
-									writeMsg("No" + "\n");
+									writeMsg("No" + "\n", getConnectionID());
 									
 								} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 										| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -569,7 +583,7 @@ public class Server {
 									    	
 									    	try {
 									    		
-												writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
+												writeMsg("Good: " + key + ", " + "Owner: " + value + "\n", getConnectionID());
 												
 											} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 													| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -592,7 +606,7 @@ public class Server {
 								
 								try {
 									
-									writeMsg("No" + "\n");
+									writeMsg("No" + "\n", getConnectionID());
 									
 								} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 										| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -631,12 +645,12 @@ public class Server {
 										if(cli == false) {
 											
 											String msg = notif + "Sorry. No such user exists." + notif;
-											writeMsg(msg);
+											writeMsg(msg, getConnectionID());
 										}
 										
 										else{
 											
-											writeMsg("Yes" +"\n");
+											writeMsg("Yes" +"\n", getConnectionID());
 											
 										}
 								    }						
@@ -646,7 +660,7 @@ public class Server {
 								if(n == 0){
 									
 									display("The good you asked is not for sale or does not exist. ");
-									writeMsg("No" + "\n");
+									writeMsg("No" + "\n", getConnectionID());
 									
 								}
 								
@@ -698,7 +712,7 @@ public class Server {
 											//Tell the seller that the transfer was successful
 											try {
 												
-												writeMsg("Yes" + "\n");
+												writeMsg("Yes" + "\n", getConnectionID());
 												
 											} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 													| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -710,7 +724,7 @@ public class Server {
 											//Tell the buyer that the transfer was successful
 											try {
 												
-												ct1.writeMsg("Yes" + "\n");
+												ct1.writeMsg("Yes" + "\n", ct1.getConnectionID());
 												
 											} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 													| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -731,7 +745,7 @@ public class Server {
 								
 								try {
 									
-									writeMsg("No" + "\n");
+									writeMsg("No" + "\n", getConnectionID());
 									
 								} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 										| InvalidAlgorithmParameterException | IllegalBlockSizeException
@@ -786,7 +800,7 @@ public class Server {
 		}
 
 		// write a String to the Client output stream
-		private boolean writeMsg(String msg) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException  {
+		private boolean writeMsg(String msg, int id) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException  {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -800,7 +814,8 @@ public class Server {
 												
 				msgEncrypt = null;
 				
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg));
+				msgEncrypt = new MessageHandler(5, encryptMessage(msg, id));
+				
 								
 				sOutput.writeObject(msgEncrypt);
 			}
@@ -828,7 +843,7 @@ public class Server {
 	   * 							The encrypted key as byte array.
 	   * 
 	   */
-	private void decryptAESKey(byte[] encryptedKey) {
+	private void decryptAESKey(byte[] encryptedKey, Integer id) {
 		
 		SecretKey key = null; 
 		
@@ -847,10 +862,9 @@ public class Server {
 	            
 	            //System.out.println();
 	            //System.out.println(" AES key after decryption : " + key);
-	            
-	            i=1;
-	            
-	            AESKey =  key;
+	            	                      	
+	            listAESKeys.put(key, id);
+						            
 	        }
 	    
 	        catch(Exception e){  
@@ -913,12 +927,21 @@ public class Server {
 	 * 
 	 * 
 	 */
-	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
+	private byte[] encryptMessage(String s, int id) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
 										BadPaddingException{
+		
 		ServerEncryptCipher = null;
 		
 		byte[] cipherText = null;
+		
+		for (Entry<SecretKey, Integer> entry : listAESKeys.entrySet()){
+			
+			if((entry.getValue()).equals(id)){
+				
+				AESKey = entry.getKey();
+			}
+		}
 		
 		ServerEncryptCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");  
 		
