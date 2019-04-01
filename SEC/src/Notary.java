@@ -11,8 +11,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 import javax.crypto.*;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
+//import javax.crypto.spec.IvParameterSpec;
+//import javax.crypto.spec.SecretKeySpec;
 
 // the server that can be run as a console
 public class Notary {
@@ -28,13 +28,10 @@ public class Notary {
 	
 	// HashMap to keep the goods to sell of each Client
 	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
-	
-	// HashMap with the AESKeys of each client of the application
-	private HashMap <SecretKey, Integer> listAESKeys = new HashMap <SecretKey, Integer>();
-	
-	//
+		
+	//HashMap with the owners of each RSA Keys on the application
 	private HashMap <String, Integer> listRSAOwners = new HashMap <String, Integer>();
-	
+		
 	// to display time
 	private SimpleDateFormat sdf;
 	
@@ -53,11 +50,15 @@ public class Notary {
 	
 	private Cipher ServerEncryptCipher;
 	
-	SecretKey AESKey;
-		
-	static String IV = "AAAAAAAAAAAAAAAA";
-		
 	MessageHandler msgEncrypt;
+	
+	// SecretKey AESKey;
+		
+	//static String IV = "AAAAAAAAAAAAAAAA";
+	
+	// HashMap with the AESKeys of each client of the application
+	//private HashMap <SecretKey, Integer> listAESKeys = new HashMap <SecretKey, Integer>();
+		
 	
 	private MessageHandler message;
 				
@@ -277,8 +278,9 @@ public class Notary {
 	 * > java Server
 	 * > java Server portNumber
 	 * If the port number is not specified 1500 is used
-	 */ 
-		public static void main(String[] args) throws IOException, GeneralSecurityException {
+	*/
+	
+	public static void main(String[] args) throws IOException, GeneralSecurityException {
 		
 		// start server on port 1500 unless a PortNumber is specified 
 		int portNumber = 1500;
@@ -409,7 +411,7 @@ public class Notary {
 					break;
 				}
 				
-				//In the first message received by the client, the server will decrypt the AES Key from the client
+				//In the first message received by the client, the server will get the name of the client and his id connectio, so that the Server can add this information to listRSAOwners
 				if (i == 0){
 										
 					if(message.getData() != null){	
@@ -434,6 +436,8 @@ public class Notary {
 					// Server will decrypt the normal messages from the Client
 					if(message.getData() != null){
 						
+						String mensagemDecryt = decryptMessage(message.getData());
+						
 						
 						/*
 						for (Entry<SecretKey, Integer> entry : listAESKeys.entrySet()){
@@ -445,9 +449,7 @@ public class Notary {
 							
 						}
 						*/
-													
-						String mensagemDecryt = decryptMessage(message.getData());
-												
+																								
 						
 						// different actions based on type message
 						switch(message.getType()) {
@@ -543,6 +545,7 @@ public class Notary {
 							 
 							    }
 							}
+							
 							//The ClientID and/or his good was not found in the clients goods list    
 							if(c == 0){
 								
@@ -766,12 +769,11 @@ public class Notary {
 							
 							
 							break;
-							
+	
 						}
 					}
 					
-				}
-							
+				}		
 						
 			}
 			
@@ -806,6 +808,8 @@ public class Notary {
 			}
 			catch (Exception e) {}
 		}
+		
+		
 
 		// write a String to the Client output stream
 		private boolean writeMsg(String msg, int id) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException  {
@@ -823,7 +827,6 @@ public class Notary {
 				msgEncrypt = null;
 				
 				msgEncrypt = new MessageHandler(5, encryptMessage(msg, id));
-				
 								
 				sOutput.writeObject(msgEncrypt);
 			}
@@ -832,6 +835,7 @@ public class Notary {
 			catch(IOException e) {
 				
 				display(notif + "Error sending message to " + clientID + notif);
+				
 				display(e.toString());
 				
 			} 
@@ -841,18 +845,20 @@ public class Notary {
 	}
 	
 	
-	 /*
-	   * // ====== Receive the encrypted AES key from server and decipher it
-	   * decryptFirstMessage method
-	   * 					will use RSA private key from the public - private key pair to
-	   * 					decipher the AES key encrypted using public key and sent by the client.
-	   * 
-	   * @param byte[] encryptedData
-	   * 							The encrypted key as byte array.
-	   * 
-	   */
-	
-	 
+
+	/*
+	 * //=========== Decipher/decrypt the first encrypted message using the private key of Notary ==========================================
+	 * 
+	 * decryptFirstMessage method.
+	 * 
+	 * 		Deciphers the encrypted message received from the client using the private Key of Notary.
+	 * 
+	 * 		Add to listRSAOwners the name of that Client (received in the message) and the id of the connection between Server-Client
+	 * 		
+	 * 		Takes byte array of the encrypted message as input.
+	 *  
+	 */
+		 
 	private void decryptFirstMessage (byte[] encryptedMessage, Integer id) {
 		
 		SecretKey key = null; 
@@ -881,21 +887,22 @@ public class Notary {
 	        	
 	        	e.printStackTrace(); 
 	         
-	        	System.out.println ( "exception decrypting the aes key: "  + e.getMessage() );
+	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
 	        }
 	       
 	    }
 	
 	
 	/*
-	 * //=========== Decipher/decrypt the encrypted message using AES key =================
+	 * //=========== Decipher/decrypt the encrypted message using the private key of Client =================
 	 * 
 	 * decryptMessage method.
-	 * 						Deciphers the encrypted message received from the client.
-	 * 						Takes byte array of the encrypted message as input.
 	 * 
-	 * 
-	 */
+	 * 		Deciphers the encrypted message received from the client using private Key.
+	 * 		
+	 * 		Takes byte array of the encrypted message as input.
+	 *  
+	*/
 		
 	private String decryptMessage(byte[] encryptedMessage) {
 		
@@ -935,13 +942,15 @@ public class Notary {
 	
 	
 	/*
-	 * //===========  Encrypted message using AES key =================
-	 * 
-	 * encryptMessage method
-	 * 						Takes the message string as input and encrypts it.
-	 * 
-	 * 
-	 */
+ 		* //===========  Encrypted message using the public key of the Client =================
+ 		*	 
+ 		* encryptMessage method
+ 		* 
+ 		* 		Takes the message string, and the id connection (to know the RSA file of that client), as input and encrypts the message.
+ 		* 
+ 		* 
+	*/
+	
 	private byte[] encryptMessage(String s, int id) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
 										BadPaddingException, IOException{
@@ -965,20 +974,29 @@ public class Notary {
 		PublicKey pK = readPublicKeyFromFile("public.key"+ owner);
 		
 		ServerEncryptCipher = Cipher.getInstance("RSA");  
-		
-		//ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, pK, new IvParameterSpec(IV.getBytes()) );
-		
+				
 		ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, pK);
 		
 		cipherText = ServerEncryptCipher.doFinal(s.getBytes());
-		
-		
 	
-	   return cipherText;
+		return cipherText;
+		
+		//ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, pK, new IvParameterSpec(IV.getBytes()) );
 	   
 	}
 		
 	
+
+	/*
+ 		* //===========  Get the Public Key of client =================
+ 		*	 
+ 		* readPublicKeyFromFile method
+ 		* 
+ 		* 		Takes the filename string as input and returns the public key of that client.
+ 		* 
+ 		* 
+	*/
+		
 	PublicKey readPublicKeyFromFile(String fileName) throws IOException {
 		
 	 	FileInputStream in = new FileInputStream(fileName);
@@ -1006,7 +1024,18 @@ public class Notary {
 	 	}
 		
 	}
-	  	
+	
+	
+	/*
+		* //===========  Get the Private Key of the Notary =================
+		*	 
+		* readPrivateKeyFromFile method
+		* 
+		* 		Takes the filename string as input and returns the private key of the Notary.
+		* 
+		* 
+	*/  	
+	
 	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
 			
 		FileInputStream in = new FileInputStream(fileName);
