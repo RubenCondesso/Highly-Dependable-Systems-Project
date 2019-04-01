@@ -29,6 +29,8 @@ public class RSA {
 		Key publicKey;
 		Key privateKey;
 		
+		static String nome;
+		
 		/*
 		 * main method
 		 * 			will instantiate an object of RSA class and call the createRSA method.
@@ -41,7 +43,7 @@ public class RSA {
 			
 			RSA rsa = new RSA();
 			
-			rsa.createRSA();	
+			rsa.createRSA(nome);	
 		}
 		
 		
@@ -54,7 +56,7 @@ public class RSA {
 		 * 					the keys will be saved as object in two separate files.
 		 */
 		
-		void createRSA() throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
+		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
 		
 			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
 			
@@ -74,9 +76,9 @@ public class RSA {
 			
 			RSAPrivateKeySpec priv = fact.getKeySpec(kPair.getPrivate(), RSAPrivateKeySpec.class);
 			
-			serializeToFile("public.key", pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
+			serializeToFile("public.key" + nome, pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
 			
-			serializeToFile("private.key", priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
+			serializeToFile("private.key" + nome, priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
 			
 		}
 			

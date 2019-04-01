@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.security.*;
 import java.security.spec.RSAPrivateKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -30,6 +31,9 @@ public class Notary {
 	
 	// HashMap with the AESKeys of each client of the application
 	private HashMap <SecretKey, Integer> listAESKeys = new HashMap <SecretKey, Integer>();
+	
+	//
+	private HashMap <String, Integer> listRSAOwners = new HashMap <String, Integer>();
 	
 	// to display time
 	private SimpleDateFormat sdf;
@@ -307,7 +311,7 @@ public class Notary {
 		}
 		
 		RSA rsa = new RSA();
-		rsa.createRSA();
+		rsa.createRSA("Notary");
 			
 		// create a server object and start it
 		Notary server = new Notary(portNumber);
@@ -410,8 +414,9 @@ public class Notary {
 										
 					if(message.getData() != null){	
 												
-						decryptAESKey(message.getData(), id);
 											
+						decryptFirstMessage(message.getData(), id);
+																	
 						i++;
 					}
 					
@@ -429,6 +434,8 @@ public class Notary {
 					// Server will decrypt the normal messages from the Client
 					if(message.getData() != null){
 						
+						
+						/*
 						for (Entry<SecretKey, Integer> entry : listAESKeys.entrySet()){
 							
 							if((entry.getValue()).equals(getConnectionID())){
@@ -437,6 +444,7 @@ public class Notary {
 							}
 							
 						}
+						*/
 													
 						String mensagemDecryt = decryptMessage(message.getData());
 												
@@ -835,7 +843,7 @@ public class Notary {
 	
 	 /*
 	   * // ====== Receive the encrypted AES key from server and decipher it
-	   * decryptAESKey method
+	   * decryptFirstMessage method
 	   * 					will use RSA private key from the public - private key pair to
 	   * 					decipher the AES key encrypted using public key and sent by the client.
 	   * 
@@ -843,7 +851,9 @@ public class Notary {
 	   * 							The encrypted key as byte array.
 	   * 
 	   */
-	private void decryptAESKey(byte[] encryptedKey, Integer id) {
+	
+	 
+	private void decryptFirstMessage (byte[] encryptedMessage, Integer id) {
 		
 		SecretKey key = null; 
 		
@@ -852,18 +862,18 @@ public class Notary {
 		keyDecipher = null;
 		
 	    try {
-	            privKey = readPrivateKeyFromFile("private.key"); 			//  private key
-	            
-	            keyDecipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); 		// initialize the cipher...
-	            
-	            keyDecipher.init(Cipher.DECRYPT_MODE, privKey );
-	            
-	            key = new SecretKeySpec (keyDecipher.doFinal(encryptedKey), "AES");
-	            
-	            //System.out.println();
-	            //System.out.println(" AES key after decryption : " + key);
+
+	    	PrivateKey prK = readPrivateKeyFromFile("private.key"+ "Notary");
+		
+            ServerDecryptCipher = Cipher.getInstance("RSA");
+            
+            //ServerDecryptCipher.init(Cipher.DECRYPT_MODE, prK , new IvParameterSpec(IV.getBytes()));
+            
+            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, prK);
+            
+            byte[] msg = ServerDecryptCipher.doFinal(encryptedMessage);
 	            	                      	
-	            listAESKeys.put(key, id);
+            listRSAOwners.put(new String(msg), id);
 						            
 	        }
 	    
@@ -893,9 +903,14 @@ public class Notary {
 	        
 		try
 	        {
-	            ServerDecryptCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+				
+				PrivateKey prK = readPrivateKeyFromFile("private.key"+ "Notary");
+			
+	            ServerDecryptCipher = Cipher.getInstance("RSA");
 	            
-	            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()));
+	            //ServerDecryptCipher.init(Cipher.DECRYPT_MODE, prK , new IvParameterSpec(IV.getBytes()));
+	            
+	            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, prK);
 	            
 	            byte[] msg = ServerDecryptCipher.doFinal(encryptedMessage);
 	            	            	            
@@ -929,23 +944,31 @@ public class Notary {
 	 */
 	private byte[] encryptMessage(String s, int id) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
-										BadPaddingException{
+										BadPaddingException, IOException{
 		
 		ServerEncryptCipher = null;
 		
+		String owner = null;
+		
 		byte[] cipherText = null;
 		
-		for (Entry<SecretKey, Integer> entry : listAESKeys.entrySet()){
+		
+		for (Entry<String, Integer> entry : listRSAOwners.entrySet()){
 			
 			if((entry.getValue()).equals(id)){
 				
-				AESKey = entry.getKey();
+				owner = entry.getKey();
 			}
 		}
 		
-		ServerEncryptCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");  
 		
-		ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()) );
+		PublicKey pK = readPublicKeyFromFile("public.key"+ owner);
+		
+		ServerEncryptCipher = Cipher.getInstance("RSA");  
+		
+		//ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, pK, new IvParameterSpec(IV.getBytes()) );
+		
+		ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, pK);
 		
 		cipherText = ServerEncryptCipher.doFinal(s.getBytes());
 		
@@ -956,39 +979,63 @@ public class Notary {
 	}
 		
 	
-	/*
-	 * // ================= Read private Key from the file======================= 
-	 * 
-	 * readPrivateKeyFromFile method
-	 * 								reads the RSA private key from private.key file saved in same directory.
-	 * 								the private key is used to decrypt/decipher the AES key sent by Client.
-	 * 
-	 */	
-	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
+	PublicKey readPublicKeyFromFile(String fileName) throws IOException {
 		
-		FileInputStream in = new FileInputStream(fileName);
-		
-	  	ObjectInputStream readObj =  new ObjectInputStream(new BufferedInputStream(in));
+	 	FileInputStream in = new FileInputStream(fileName);
+	  	ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
 
 	  	try {
-	  		
-	  	  BigInteger m = (BigInteger) readObj.readObject();
-	  	  BigInteger d = (BigInteger) readObj.readObject();
+	  			  	  
+	  		BigInteger m = (BigInteger) oin.readObject();
 	  	  
-	  	  RSAPrivateKeySpec keySpec = new RSAPrivateKeySpec(m, d);
-	  	  KeyFactory fact = KeyFactory.getInstance("RSA");
-	  	  PrivateKey priKey = fact.generatePrivate(keySpec);
+	  		BigInteger e = (BigInteger) oin.readObject();
 	  	  
-	  	  return priKey;
+	  		RSAPublicKeySpec keySpecifications = new RSAPublicKeySpec(m, e);
 	  	  
+	  		KeyFactory kF = KeyFactory.getInstance("RSA");
+	  	  
+	  		PublicKey pubK = kF.generatePublic(keySpecifications);
+	  	  
+	  		return pubK;
+	  	
 	  	} catch (Exception e) {
-	  		
-	  		  throw new RuntimeException("Some error in reading private key", e);
-	  		  
+	  		  throw new RuntimeException("Some error in reading public key", e);
+	  	
 	  	} finally {
-	  		
-	 	   readObj.close();
+	 	   oin.close();
 	 	}
+		
+	}
+	  	
+	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
+			
+		FileInputStream in = new FileInputStream(fileName);
+		ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
+
+		try {
+		  	  
+			BigInteger m = (BigInteger) oin.readObject();
+		  	  
+		  	BigInteger e = (BigInteger) oin.readObject();
+		  	  
+		  	RSAPrivateKeySpec keySpecifications = new RSAPrivateKeySpec(m, e);
+		  	  
+		  	KeyFactory kF = KeyFactory.getInstance("RSA");
+		  	  
+		  	PrivateKey privK = kF.generatePrivate(keySpecifications);
+		  	  
+		  	return privK;
+		  	
+		} catch (Exception e) {
+			
+				throw new RuntimeException("Some error in reading private key", e);
+		  	
+		  } finally {
+		 	   
+			  oin.close();
+		 	
+		  }
+			
 	}
 	
 	

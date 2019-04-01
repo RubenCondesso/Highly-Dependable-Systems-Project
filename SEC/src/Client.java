@@ -6,6 +6,7 @@ import java.util.*;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
+import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Scanner;
 
@@ -182,7 +183,9 @@ public class Client  {
 				msgEncrypt = null;
 				
 				//Client will encrypt his AEK key   
-				msgEncrypt = new MessageHandler(5, encryptAESKey());
+				//msgEncrypt = new MessageHandler(5, encryptAESKey());
+				
+				msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())));
 							 
 				sOutput.writeObject(msgEncrypt);
 				
@@ -221,6 +224,7 @@ public class Client  {
 	 * 						Called by main method, generates the AES key for encryption / decryption of the messages exchanged between client and server.
 	 */
 	
+	/*
 	void generateAESkey() throws NoSuchAlgorithmException{
 		
 		AESkey = null;
@@ -233,6 +237,8 @@ public class Client  {
 	
 		//System.out.println("Genereated the AES key : " + AESkey);
 	}
+	
+	 */
 	
 	/*
 	 * // ====== Read RSA Public key to Encrypt the AES key  ==================
@@ -248,6 +254,8 @@ public class Client  {
 	 */
 		
 
+	
+	/*
 	private byte[] encryptAESKey (){
 		
 		cipher1 = null;
@@ -286,6 +294,9 @@ public class Client  {
   	  
 		return key;
   	  } 
+	 */
+	
+	
 	
 	
 	/*
@@ -304,15 +315,20 @@ public class Client  {
 
 	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
-										BadPaddingException{
+										BadPaddingException, IOException{
 	
+		
+		PublicKey pK = readPublicKeyFromFile("public.key"+"Notary");
+		
 		cipher2 = null;
 	
 		byte[] cipherText = null;
 	
-		cipher2 = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+		cipher2 = Cipher.getInstance("RSA");
 	
-		cipher2.init(Cipher.ENCRYPT_MODE, AESkey, new IvParameterSpec(IV.getBytes()) );
+		//cipher2.init(Cipher.ENCRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()) );
+		
+		cipher2.init(Cipher.ENCRYPT_MODE, pK);
 	
 		long time3 = System.nanoTime();
 	
@@ -346,10 +362,14 @@ public class Client  {
 	        cipher2 = null;
 	        
 	        try {
+	        	
+	        	PrivateKey prK = readPrivateKeyFromFile("private.key"+ getClientID());
 	            
-	        	cipher2 = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+	        	cipher2 = Cipher.getInstance("RSA");
 	            
-	        	cipher2.init(Cipher.DECRYPT_MODE, AESkey, new IvParameterSpec(IV.getBytes()));
+	        	//cipher2.init(Cipher.DECRYPT_MODE, prK , new IvParameterSpec(IV.getBytes()));
+	        	
+	        	cipher2.init(Cipher.DECRYPT_MODE, prK);
 	             
 	        	byte[] msg = cipher2.doFinal(encryptedMessage);		            
 	             
@@ -419,6 +439,37 @@ public class Client  {
 	 	}
 		
 	}
+	  	
+	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
+			
+		FileInputStream in = new FileInputStream(fileName);
+		ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
+
+		try {
+		  	  
+			BigInteger m = (BigInteger) oin.readObject();
+		  	  
+		  	BigInteger e = (BigInteger) oin.readObject();
+		  	  
+		  	RSAPrivateKeySpec keySpecifications = new RSAPrivateKeySpec(m, e);
+		  	  
+		  	KeyFactory kF = KeyFactory.getInstance("RSA");
+		  	  
+		  	PrivateKey privK = kF.generatePrivate(keySpecifications);
+		  	  
+		  	return privK;
+		  	
+		} catch (Exception e) {
+			
+				throw new RuntimeException("Some error in reading private key", e);
+		  	
+		  } finally {
+		 	   
+			  oin.close();
+		 	
+		  }
+			
+	}
 	
 	
 	/*
@@ -432,7 +483,7 @@ public class Client  {
 	 * If the serverAddress is not specified "localHost" is used
 	 * If the clientID is not specified "Anonymous" is used
 	 */
-	public static void main(String[] args) throws IOException, NoSuchAlgorithmException  {
+	public static void main(String[] args) throws IOException, GeneralSecurityException  {
 		
 		// default values if not entered
 		int portNumber = 1500;
@@ -486,24 +537,24 @@ public class Client  {
 			return;
 		}
 		
+		RSA rsa = new RSA();
+		rsa.createRSA(clientID);
 		
 		// create the Client object
 		Client client = new Client(serverAddress, portNumber, clientID);
 		
-		client.generateAESkey();
+		//client.generateAESkey();
 							
 		// try to connect to the server and return if not connected
 		if(!client.start())
 			
 			return;
 		
-		//First Message between server and client
-		String testeInicial = "Teste";
-			
-		byte[] testeBytes = testeInicial.getBytes();
+		//First Message between server and client			
+		byte[] owner = (client.getClientID()).getBytes();
 		
 		//Send AES Key of Client to server
-		client.sendMessage(new MessageHandler(MessageHandler.Encrypt, testeBytes));
+		client.sendMessage(new MessageHandler(MessageHandler.Encrypt, owner));
 		
 		System.out.println("1. Type 'ENTER' to enter in the application");
 		
