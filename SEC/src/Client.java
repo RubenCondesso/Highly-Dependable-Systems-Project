@@ -536,8 +536,7 @@ public class Client  {
 				
 			return;
 		}
-		
-		
+				
 		RSA rsa = new RSA();
 		rsa.createRSA(clientID);
 		

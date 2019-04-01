@@ -278,8 +278,7 @@ public class Notary {
 	 * > java Server portNumber
 	 * If the port number is not specified 1500 is used
 	 */ 
-	
-	public static void main(String[] args) throws IOException, GeneralSecurityException {
+		public static void main(String[] args) throws IOException, GeneralSecurityException {
 		
 		// start server on port 1500 unless a PortNumber is specified 
 		int portNumber = 1500;
