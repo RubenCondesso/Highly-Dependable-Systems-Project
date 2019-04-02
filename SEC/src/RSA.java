@@ -76,9 +76,9 @@ public class RSA {
 			
 			RSAPrivateKeySpec priv = fact.getKeySpec(kPair.getPrivate(), RSAPrivateKeySpec.class);
 			
-			serializeToFile("public.key" + nome, pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
+			serializeToFile(nome + "public.key", pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
 			
-			serializeToFile("private.key" + nome, priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
+			serializeToFile(nome + "private.key", priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
 			
 		}
 			

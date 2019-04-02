@@ -26,22 +26,17 @@ public class Client  {
 	private static ObjectOutputStream sOutput;		// to write on the socket
 	private Socket socket;					
 	
-	private String server, clientID, good;	
-	private int port;	
+	private String server, clientID;	
+	private int port;
+	
+	// id of the connection of the client socket
+	private static String clientConnection;
 	
 	private Cipher cipher;
 		
 	MessageHandler msgEncrypt;
 	MessageHandler message;
-		
-	int i = 0;
-	
-	//private Cipher cipher2;
-	//SecretKey AESkey;
-	//static String IV = "AAAAAAAAAAAAAAAA";
-	
-	
-	
+			
 	//List of goods of the client
 	private static HashMap<String, String> goodsList = new HashMap<String, String>();
 	
@@ -83,9 +78,18 @@ public class Client  {
 	 */
 	
 	public boolean start() {
+		
 		// try to connect to the server
 		try {
+			
 			socket = new Socket(server, port);
+									
+			clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
+			
+			System.out.println("Ligação: " + clientConnection);
+			
+			// set the socket SO timeout to 10 seconds
+			//socket.setSoTimeout(10*1000);
 		} 
 		
 		// exception handler if it failed
@@ -174,31 +178,14 @@ public class Client  {
 	void sendMessage(MessageHandler msg) {
 		
 		try {
-			
-			if(i==0){
 						
-				msgEncrypt = null;
-								
-				msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())));
-							 
-				sOutput.writeObject(msgEncrypt);
-				
-				//Client will encrypt his AEK key   
-				//msgEncrypt = new MessageHandler(5, encryptAESKey());
-				
-			}
+			msgEncrypt = null;
 			
-			else {
-				
-				msgEncrypt = null;
-				
-				//Client will send a normal message encrypted				
-				msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())));
-								
-				sOutput.writeObject(msgEncrypt);
-				
-			}
-						
+			//Client will send a normal message encrypted				
+			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())));
+							
+			sOutput.writeObject(msgEncrypt);
+										
 		}
 		
 		catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
@@ -213,10 +200,9 @@ public class Client  {
 	}
 	
 	
-	
 		
 	/*
-		* //===========  Encrypted message using the public key of the Notary =================
+		* //===========  Encrypted message using the private key of the Client =================
 		*	 
 		* encryptMessage method
 		* 
@@ -230,16 +216,14 @@ public class Client  {
 										BadPaddingException, IOException{
 	
 		
-		PublicKey pK = readPublicKeyFromFile("public.key"+"Notary");
+		PrivateKey pK = readPrivateKeyFromFile(clientConnection + "private.key");
 		
 		cipher = null;
 	
 		byte[] cipherText = null;
 	
 		cipher = Cipher.getInstance("RSA");
-	
-		//cipher.init(Cipher.ENCRYPT_MODE, AESKey, new IvParameterSpec(IV.getBytes()) );
-		
+			
 		cipher.init(Cipher.ENCRYPT_MODE, pK);
 	
 		long time3 = System.nanoTime();
@@ -248,21 +232,19 @@ public class Client  {
 	
 		long time4 = System.nanoTime();
 	
-		long totalAES = time4 - time3;
-	
-		// System.out.println("Time taken by AES Encryption (Nano Seconds) " + totalAES);
-			   
+		//long totalRSA = time4 - time3;
+				   
 		return cipherText;
 	}
 	
 	
 	
 	/*
-	 * //=========== Decipher/decrypt the encrypted message using the private key of Client =================
+	 * //=========== Decipher/decrypt the encrypted message using the public key of Notary =================
 	 * 
 	 * decryptMessage method.
 	 * 
-	 * 		Deciphers the encrypted message received from the client using private Key.
+	 * 		Deciphers the encrypted message received from the Notary using his public Key.
 	 * 		
 	 * 		Takes byte array of the encrypted message as input.
 	 *  
@@ -274,12 +256,14 @@ public class Client  {
 	        
 	        try {
 	        	
-	        	PrivateKey prK = readPrivateKeyFromFile("private.key"+ getClientID());
+	    		//String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + socket.getPort();
+	    		
+	        	String idConnection = "0.0.0.0" + ":" + socket.getPort();
+	    			        	
+	        	PublicKey prK = readPublicKeyFromFile(idConnection + "public.key");
 	            
 	        	cipher = Cipher.getInstance("RSA");
-	            
-	        	//cipher.init(Cipher.DECRYPT_MODE, prK , new IvParameterSpec(IV.getBytes()));
-	        	
+	            	        	
 	        	cipher.init(Cipher.DECRYPT_MODE, prK);
 	             
 	        	byte[] msg = cipher.doFinal(encryptedMessage);		            
@@ -448,26 +432,21 @@ public class Client  {
 			return;
 		}
 				
-		RSA rsa = new RSA();
-		rsa.createRSA(clientID);
 		
 		// create the Client object
 		Client client = new Client(serverAddress, portNumber, clientID);
-		
-		//client.generateAESkey();
-							
+									
 		// try to connect to the server and return if not connected
 		if(!client.start())
 			
 			return;
 		
 		
-		//First Message between server and client			
-		byte[] owner = (client.getClientID()).getBytes();
+		System.out.println("Id do cliente: " + clientConnection);
 		
-		//Send AES Key of Client to server
-		client.sendMessage(new MessageHandler(MessageHandler.Encrypt, owner));
-		
+		RSA rsa = new RSA();
+		rsa.createRSA(clientConnection);
+				
 		System.out.println("Type 'ENTER' to enter in the application");
 		
 		// infinite loop to get the input from the user
@@ -602,7 +581,6 @@ public class Client  {
 				
 			}
 			
-
 		}
 		
 		// close resource
@@ -650,84 +628,4 @@ public class Client  {
 		}
 	}
 	
-	
-	/*
-	 * //============== Create AES Key =================================
-	 * 
-	 * generateAESkey method
-	 * 
-	 * 						Called by main method, generates the AES key for encryption / decryption of the messages exchanged between client and server.
-	 */
-	
-	/*
-	void generateAESkey() throws NoSuchAlgorithmException{
-		
-		AESkey = null;
-	
-		KeyGenerator Gen = KeyGenerator.getInstance("AES");
-	
-		Gen.init(128);
-	
-		AESkey = Gen.generateKey();
-	
-		//System.out.println("Genereated the AES key : " + AESkey);
-	}
-	
-	 */
-	
-	/*
-	 * // ====== Read RSA Public key to Encrypt the AES key  ==================
-	 * 
-	 * encryptAESKey method.
-	 * 
-	 * 						Will encrypt the AES key generated by generateAESkey method. It will also calculate the time taken for encrypting the AES key using RSA encryption method.
-	 * 
-	 * 						To encrypt the AES key, this method will read RSA public key from the RSA public = private key pairs saved in the same directory.
-	 * 							
-	 * 						Dependency: the public key  file "public.key" should be saved in the same directory. (Performed by server.java class)
-	 * 	
-	 */
-		
-
-	
-	/*
-	private byte[] encryptAESKey (){
-		
-		cipher1 = null;
-    	
-		byte[] key = null;
-  	  	
-		try {
-		 
-			PublicKey pK = readPublicKeyFromFile("public.key");
-	 	  
-			// System.out.println("Encrypting the AES key using RSA Public Key" + pK);
-   	     
-			// initialize the cipher with the user's public key
-			cipher1 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-   	    
-   	     	cipher1.init(Cipher.ENCRYPT_MODE, pK );
-   	     
-   	     	long time1 = System.nanoTime();
-   	     
-   	     	key = cipher1.doFinal(AESkey.getEncoded());   // this encrypted key will be sent to the server.
-   	     
-   	     	long time2 = System.nanoTime();
-   	     
-   	     	long totalRSA = time2 - time1;
-   	     
-   	     	// System.out.println("Time taken by RSA Encryption (Nano Seconds) : " + totalRSA);
-   	     
-   	     	i = 1;
-   	 	}
-  	  
-		catch(Exception e ) {
-   		 
-    	    System.out.println ( "exception encoding key: " + e.getMessage() );
-    	    e.printStackTrace();
-   	 	}
-  	  
-		return key;
-  	  } 
-	 */
 }
