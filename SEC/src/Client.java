@@ -6,6 +6,8 @@ import java.util.*;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Scanner;
@@ -86,7 +88,7 @@ public class Client  {
 									
 			clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
 			
-			System.out.println("Ligação: " + clientConnection);
+			System.out.println("Ligaï¿½ï¿½o: " + clientConnection);
 			
 			// set the socket SO timeout to 10 seconds
 			//socket.setSoTimeout(10*1000);
@@ -175,7 +177,7 @@ public class Client  {
 	/*
 	 * To send a message to the server
 	 */
-	void sendMessage(MessageHandler msg) {
+	void sendMessage(MessageHandler msg) throws UnrecoverableKeyException, KeyStoreException, CertificateException {
 		
 		try {
 						
@@ -210,13 +212,29 @@ public class Client  {
 		* 
 		* 
 	*/
+	
+	public PrivateKey getKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
+		FileInputStream is = new FileInputStream(nome);
+	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+	    keystore.load(is, "SEC".toCharArray());
+	    String alias = nome;
+
+	    Key key = keystore.getKey(alias, "SEC".toCharArray());
+	    System.out.println("ola");
+	    System.out.println(key);
+	    
+	    return (PrivateKey) key;
+	 
+	}
 
 	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
-										BadPaddingException, IOException{
+										BadPaddingException, IOException, UnrecoverableKeyException, KeyStoreException, CertificateException{
 	
 		
-		PrivateKey pK = readPrivateKeyFromFile(clientConnection + "private.key");
+		//PrivateKey pK = readPrivateKeyFromFile(clientConnection + "private.key");
+		
+		PrivateKey pK = getKey(clientConnection);
 		
 		cipher = null;
 	
@@ -468,7 +486,7 @@ public class Client  {
 					System.out.println("4. Type 'TRANSFERGOOD'' to inform the Notary of some transaction");
 					System.out.println("5. Type 'LOGOUT' to logoff from application");
 					
-					setGoodsClient(clientID + "Maça", clientID);
+					setGoodsClient(clientID + "Maca", clientID);
 					setGoodsClient(clientID + "Banana", clientID);
 					setGoodsClient(clientID + "Kiwi", clientID);
 												

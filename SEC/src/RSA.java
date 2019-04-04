@@ -9,13 +9,16 @@
  * 
  */
 
-
-
 import java.io.*;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.*;
-
+import java.sql.Date;
+import org.bouncycastle.jce.X509Principal;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.x509.X509V3CertificateGenerator;
+import java.security.KeyStore;
+import java.security.cert.X509Certificate;
 
 	/*
 	 * RSA class
@@ -31,6 +34,19 @@ public class RSA {
 		
 		static String nome;
 		
+		private static final String CERTIFICATE_ALIAS = "certificate";
+	    private static final String CERTIFICATE_ALGORITHM = "RSA";
+	    private static final String CERTIFICATE_DN = "CN=cn, O=o, L=L, ST=il, C= c";
+	    private static final String CERTIFICATE_NAME = "keystore.test";
+	    private static final int CERTIFICATE_BITS = 1024;
+	    
+	    static {
+	        // adds the Bouncy castle provider to java security
+	        Security.addProvider(new BouncyCastleProvider());
+	    }
+		
+		
+		
 		/*
 		 * main method
 		 * 			will instantiate an object of RSA class and call the createRSA method.
@@ -43,11 +59,14 @@ public class RSA {
 			
 			RSA rsa = new RSA();
 			
-			rsa.createRSA(nome);	
+			rsa.createRSA(nome);
+			
+			
 		}
 		
 		
 		
+		@SuppressWarnings("deprecation")
 		// ============ Generating key pair =======
 		
 		/*
@@ -57,7 +76,9 @@ public class RSA {
 		 */
 				
 		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
-		
+			
+			X509Certificate cert = null;
+			
 			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
 			
 			kPairGen.initialize(1024);
@@ -78,9 +99,33 @@ public class RSA {
 			
 			serializeToFile(nome + "public.key", pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
 			
-			serializeToFile(nome + "private.key", priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
-			
+			//serializeToFile(nome + "private.key", priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
+		
+			X509V3CertificateGenerator v3CertGen =  new X509V3CertificateGenerator();
+	        v3CertGen.setSerialNumber(BigInteger.valueOf(System.currentTimeMillis()));
+	        v3CertGen.setIssuerDN(new X509Principal(CERTIFICATE_DN));
+	        v3CertGen.setNotBefore(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24));
+	        v3CertGen.setNotAfter(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * 365*10)));
+	        v3CertGen.setSubjectDN(new X509Principal(CERTIFICATE_DN));
+	        v3CertGen.setPublicKey(kPair.getPublic());
+	        v3CertGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
+	        cert = v3CertGen.generateX509Certificate(kPair.getPrivate());
+	        try {
+				saveCert(cert,kPair.getPrivate(), nome);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		
 		}
+		
+		void saveCert(X509Certificate cert, PrivateKey key, String nome) throws Exception {
+	        KeyStore keyStore = KeyStore.getInstance("JKS");    
+	        keyStore.load(null, null);
+	        keyStore.setKeyEntry(nome, key, "SEC".toCharArray(),  new java.security.cert.Certificate[]{cert});
+	        File file = new File(".", nome);
+	        keyStore.store( new FileOutputStream(file), "SEC".toCharArray() );
+	    }
 			
 		// ===== Save the keys with  specifications into files ==============
 		/*

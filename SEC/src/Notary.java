@@ -9,6 +9,8 @@ import java.security.spec.RSAPublicKeySpec;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
 
 import javax.crypto.*;
 //import javax.crypto.spec.IvParameterSpec;
@@ -83,7 +85,8 @@ public class Notary {
 			
 			RSA rsa = new RSA();
 			
-			rsa.createRSA(notaryConnection);	
+			rsa.createRSA(notaryConnection);
+			
 			
 			// infinite loop to wait for connections ( till server is active )
 			while(serverRunning) 
@@ -849,7 +852,11 @@ public class Notary {
 		byte[] cipherText = null;
 		
 				
-		PrivateKey prK = readPrivateKeyFromFile(notaryConnection + "private.key");
+		//PrivateKey prK = readPrivateKeyFromFile(notaryConnection + "private.key");
+		
+		//System.out.println(prK);;
+		
+		PrivateKey prK = getKey(notaryConnection);
 		
 		ServerEncryptCipher = Cipher.getInstance("RSA");  
 				
@@ -941,6 +948,22 @@ public class Notary {
 		 	
 		  }
 			
+	}
+	
+	public PrivateKey getKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
+		FileInputStream is = new FileInputStream(nome);
+	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+	    keystore.load(is, "SEC".toCharArray());
+	    String alias = nome;
+
+	    Key key = keystore.getKey(alias, "SEC".toCharArray());
+	    System.out.println("ola");
+	    System.out.println(key);
+	    
+	    return (PrivateKey) key;
+	 
+		
+		
 	}
 	
 	
