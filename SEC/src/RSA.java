@@ -75,7 +75,7 @@ public class RSA {
 		 * 					the keys will be saved as object in two separate files.
 		 */
 				
-		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
+		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException {
 			
 			X509Certificate cert = null;
 			
@@ -86,9 +86,7 @@ public class RSA {
 			KeyPair kPair = kPairGen.genKeyPair();
 			
 			publicKey = kPair.getPublic();
-			
-			// System.out.println(publicKey);
-			
+						
 			privateKey = kPair.getPrivate();
 	 
 			KeyFactory fact = KeyFactory.getInstance("RSA");
@@ -99,31 +97,46 @@ public class RSA {
 			
 			serializeToFile(nome + "public.key", pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
 			
-			//serializeToFile(nome + "private.key", priv.getModulus(), priv.getPrivateExponent());			// this will give private key file
-		
 			X509V3CertificateGenerator v3CertGen =  new X509V3CertificateGenerator();
+			
 	        v3CertGen.setSerialNumber(BigInteger.valueOf(System.currentTimeMillis()));
+	        
 	        v3CertGen.setIssuerDN(new X509Principal(CERTIFICATE_DN));
+	        
 	        v3CertGen.setNotBefore(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24));
+	        
 	        v3CertGen.setNotAfter(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * 365*10)));
+	        
 	        v3CertGen.setSubjectDN(new X509Principal(CERTIFICATE_DN));
+	        
 	        v3CertGen.setPublicKey(kPair.getPublic());
+	        
 	        v3CertGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
+	        
 	        cert = v3CertGen.generateX509Certificate(kPair.getPrivate());
+	        
+	     
 	        try {
+	        	
 				saveCert(cert,kPair.getPrivate(), nome);
+				
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
+				
 				e.printStackTrace();
 			}
 		
 		}
 		
 		void saveCert(X509Certificate cert, PrivateKey key, String nome) throws Exception {
+			
 	        KeyStore keyStore = KeyStore.getInstance("JKS");    
+	        
 	        keyStore.load(null, null);
+	        
 	        keyStore.setKeyEntry(nome, key, "SEC".toCharArray(),  new java.security.cert.Certificate[]{cert});
+	        
 	        File file = new File(".", nome);
+	        
 	        keyStore.store( new FileOutputStream(file), "SEC".toCharArray() );
 	    }
 			

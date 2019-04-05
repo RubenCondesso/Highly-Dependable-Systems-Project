@@ -87,9 +87,7 @@ public class Client  {
 			socket = new Socket(server, port);
 									
 			clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
-			
-			System.out.println("Liga��o: " + clientConnection);
-			
+						
 			// set the socket SO timeout to 10 seconds
 			//socket.setSoTimeout(10*1000);
 		} 
@@ -202,7 +200,6 @@ public class Client  {
 	}
 	
 	
-		
 	/*
 		* //===========  Encrypted message using the private key of the Client =================
 		*	 
@@ -212,29 +209,12 @@ public class Client  {
 		* 
 		* 
 	*/
-	
-	public PrivateKey getKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
-		FileInputStream is = new FileInputStream(nome);
-	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-	    keystore.load(is, "SEC".toCharArray());
-	    String alias = nome;
-
-	    Key key = keystore.getKey(alias, "SEC".toCharArray());
-	    System.out.println("ola");
-	    System.out.println(key);
-	    
-	    return (PrivateKey) key;
-	 
-	}
-
 	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
 										BadPaddingException, IOException, UnrecoverableKeyException, KeyStoreException, CertificateException{
 	
-		
-		//PrivateKey pK = readPrivateKeyFromFile(clientConnection + "private.key");
-		
-		PrivateKey pK = getKey(clientConnection);
+				
+		PrivateKey pK = getPrivateKey(clientConnection);
 		
 		cipher = null;
 	
@@ -301,8 +281,44 @@ public class Client  {
 	        
 	        return null;
 	 }
-
 	
+	
+	/*
+		* //===========  Get the private key of the Client of the KeyStore =================
+		*	 
+		* getPrivateKey method
+		* 
+		* 		Takes the variable 'clientConnection' as input and retrieves the private key of the Client.
+		* 		The private key of the client is saved in a JavaKey store.
+		* 
+		* 
+	*/
+	public PrivateKey getPrivateKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
+		
+		FileInputStream is = new FileInputStream(nome);
+		
+	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+	    
+	    keystore.load(is, "SEC".toCharArray());
+	    
+	    String alias = nome;
+	
+	    Key key = keystore.getKey(alias, "SEC".toCharArray());
+	    
+	    return (PrivateKey) key;
+	 
+	}
+	
+
+	/*
+		* //===========  Get the public key of the Client of the serialize file =================
+		*	 
+		* readPublicKeyFromFile method
+		* 
+		* 		Takes the filename as input and retrieves the public key of the Client of the serialize file.
+		* 
+		* 
+	*/
 	PublicKey readPublicKeyFromFile(String fileName) throws IOException {
 		
 	 	FileInputStream in = new FileInputStream(fileName);
@@ -330,7 +346,9 @@ public class Client  {
 	 	}
 		
 	}
-	  	
+	 
+	
+	/*
 	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
 			
 		FileInputStream in = new FileInputStream(fileName);
@@ -361,6 +379,7 @@ public class Client  {
 		  }
 			
 	}
+	*/
 	
 	
 	/*
@@ -459,9 +478,7 @@ public class Client  {
 			
 			return;
 		
-		
-		System.out.println("Id do cliente: " + clientConnection);
-		
+				
 		RSA rsa = new RSA();
 		rsa.createRSA(clientConnection);
 				

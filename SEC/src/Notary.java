@@ -850,13 +850,8 @@ public class Notary {
 		ServerEncryptCipher = null;
 				
 		byte[] cipherText = null;
-		
 				
-		//PrivateKey prK = readPrivateKeyFromFile(notaryConnection + "private.key");
-		
-		//System.out.println(prK);;
-		
-		PrivateKey prK = getKey(notaryConnection);
+		PrivateKey prK = getPrivateKey(notaryConnection);
 		
 		ServerEncryptCipher = Cipher.getInstance("RSA");  
 				
@@ -867,19 +862,48 @@ public class Notary {
 		return cipherText;
 	   
 	}
+	
+	
+	
+	
+	/*
+		* //===========  Get the private key of the Notary of the KeyStore =================
+		*	 
+		* getPrivateKey method
+		* 
+		* 		Takes the variable 'clientConnection' as input and retrieves the private key of the Notary.
+		* 		The private key of the client is saved in a JavaKey store.
+		* 
+		* 
+	*/ 	
+	public PrivateKey getPrivateKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
+		
+		FileInputStream is = new FileInputStream(nome);
+		
+	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+	    
+	    keystore.load(is, "SEC".toCharArray());
+	    
+	    String alias = nome;
+	
+	    Key key = keystore.getKey(alias, "SEC".toCharArray());
+	   
+	    return (PrivateKey) key;
+	 
+	}
+
 		
 	
 
 	/*
- 		* //===========  Get the Public Key of client =================
- 		*	 
- 		* readPublicKeyFromFile method
- 		* 
- 		* 		Takes the filename string as input and returns the public key of that client.
- 		* 
- 		* 
+		* //===========  Get the public key of the Notary of the serialize file =================
+		*	 
+		* readPublicKeyFromFile method
+		* 
+		* 		Takes the filename as input and retrieves the public key of the Notary of the serialize file.
+		* 
+		* 
 	*/
-		
 	PublicKey readPublicKeyFromFile(String fileName) throws IOException {
 		
 	 	FileInputStream in = new FileInputStream(fileName);
@@ -910,15 +934,6 @@ public class Notary {
 	
 	
 	/*
-		* //===========  Get the Private Key of the Notary =================
-		*	 
-		* readPrivateKeyFromFile method
-		* 
-		* 		Takes the filename string as input and returns the private key of the Notary.
-		* 
-		* 
-	*/  	
-	
 	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
 			
 		FileInputStream in = new FileInputStream(fileName);
@@ -949,22 +964,6 @@ public class Notary {
 		  }
 			
 	}
-	
-	public PrivateKey getKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
-		FileInputStream is = new FileInputStream(nome);
-	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-	    keystore.load(is, "SEC".toCharArray());
-	    String alias = nome;
-
-	    Key key = keystore.getKey(alias, "SEC".toCharArray());
-	    System.out.println("ola");
-	    System.out.println(key);
-	    
-	    return (PrivateKey) key;
-	 
-		
-		
-	}
-	
+	*/
 	
 }
