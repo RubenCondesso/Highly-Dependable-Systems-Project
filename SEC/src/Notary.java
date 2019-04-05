@@ -9,7 +9,6 @@ import java.security.spec.RSAPublicKeySpec;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.KeyStore;
 import java.security.cert.CertificateException;
 
 import javax.crypto.*;
@@ -186,7 +185,7 @@ public class Notary {
 			String tocheck=w[1].substring(1, w[1].length());
 			
 			message=w[0]+w[2];
-			
+						
 			String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + "\n";
 			
 			boolean found=false; 
@@ -471,6 +470,7 @@ public class Notary {
 					case MessageHandler.LOGOUT:
 					
 						display(clientID + " disconnected from the application.");
+						
 						serverRunning = false;
 					
 						break;
@@ -507,7 +507,7 @@ public class Notary {
 					 
 							}
 						}
-					
+						
 						//The ClientID and/or his good was not found in the clients goods list    
 						if(c == 0){
 							
@@ -565,18 +565,17 @@ public class Notary {
 								}
 						    	
 						    }
-						}
-						
+						}						
 																
 						//This good is not for sale   
 						if(s == 0){
 							
-							display("The good you asked is not for sale or does not exist or your ID does not exist in the application");
+							display("The good is not for sale or does not exist or the ID does not exist in the application. ");
 							
 							try {
 								
 								writeMsg("No" + "\n");
-								
+																
 							} catch (IOException | GeneralSecurityException  e) {
 								
 							
@@ -594,9 +593,7 @@ public class Notary {
 						boolean cli;
 						
 						try {
-							
-							cli = broadcast(clientID + ": " + mensagemDecryt);
-							
+																					
 							String[] w = (mensagemDecryt.toString()).split(" ",3);			
 							
 							for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
@@ -608,16 +605,33 @@ public class Notary {
 							    if (key.equals(w[1])){
 							    	
 							    	n=1;
-									
-									if(cli == false) {
+							    	
+							    	//The Buyer is the Seller
+							    	if (value.equals(clientID)){
+							    		
+							    		display("A client can't buy his own goods. ");
+							    									    		
+										writeMsg("No" + "\n");
 										
-										String msg = notif + "Sorry. No such user exists." + notif;
-										writeMsg(msg);
-									}
+							    	}
+									
+									
 									
 									else{
 										
-										writeMsg("Yes" +"\n");
+										cli = broadcast(clientID + ": " + mensagemDecryt);
+										
+										if(cli == false) {
+											
+											String msg = notif + "Sorry. No such user exists." + notif;
+											writeMsg(msg);
+										}
+										
+										else{
+											
+											//The operation was successful
+											writeMsg("Yes" +"\n");
+										}
 										
 									}
 							    }						
@@ -626,7 +640,7 @@ public class Notary {
 							//This good is not for sale   
 							if(n == 0){
 								
-								display("The good you asked is not for sale or does not exist. ");
+								display("The good is not for sale or does not exist. ");
 								writeMsg("No" + "\n");
 								
 							}
@@ -658,46 +672,65 @@ public class Notary {
 						    
 						    //Verify if the requested good is for sale and if the client it's the owner of the good
 						    if (value.equals(clientID) && key.equals(good)){
+						    	
+						    	//The Buyer is the Seller
+						    	if(clientID.equals(buyer)){
+						    	
+						    		display("A client can't transfer his own goods to himself. ");
 						    		
-						    	for(int y=clientsList.size(); --y>=0;){
-									
-									ClientThread ct1=clientsList.get(y);
-									String check=ct1.getClientID();
-									
-									//Verify if the Buyer is a client on the list
-									if (check.equals(buyer)){
+									try {
+						
+							    		writeMsg("No" + "\n");
+							    		
 										
-										p=1;
+									} catch (IOException | GeneralSecurityException e) {
 										
-										clientsGoodsList.put(key, buyer);
-										
-										clientsGoodsToSell.remove(key, value);					
-										
-										display("The transfer was successful. ");
-										
-										//Tell the seller that the transfer was successful
-										try {
-											
-											writeMsg("Yes" + "\n");
-											
-										} catch (IOException | GeneralSecurityException  e) {
-											
-											e.printStackTrace();
-										}
-										
-										//Tell the buyer that the transfer was successful
-										try {
-											
-											ct1.writeMsg("Yes" + "\n");
-											
-										} catch (IOException | GeneralSecurityException  e) {
-											
-											e.printStackTrace();
-										}
-										
+										e.printStackTrace();
 									}
 						    	}
-							
+						    	
+						    	else{
+						    		
+						    		for(int y=clientsList.size(); --y>=0;){
+										
+										ClientThread ct1=clientsList.get(y);
+										String check=ct1.getClientID();
+										
+										//Verify if the Buyer is a client on the list
+										if (check.equals(buyer)){
+											
+											p=1;
+											
+											clientsGoodsList.put(key, buyer);
+											
+											clientsGoodsToSell.remove(key, value);					
+											
+											display("The transfer was successful. ");
+											
+											//Tell the clients that the transfer was successful
+											try {
+																								
+												//inform the seller about the outcome of the transfer
+									    		Boolean response1 = broadcast(clientID + ": " + "The transfer was successful");
+									    		
+									    		writeMsg("Yes" + "\n");
+									    														
+												//inform the buyer about the outcome of the transfer
+									    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "The transfer was successful");
+									    		
+									    		ct1.writeMsg("Yes" + "\n");
+									    		
+												
+											} catch (IOException | GeneralSecurityException  e) {
+												
+												e.printStackTrace();
+											}
+											
+										}
+							    	}
+						    		
+						    	}
+						    									
 						    }						
 						}
 						

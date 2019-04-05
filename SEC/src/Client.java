@@ -611,6 +611,8 @@ public class Client  {
 				// regular text message
 				else {
 					
+					//Wrong Input from the Client
+					System.out.println("Wrong input! Try again please. ");
 					
 				}
 				
