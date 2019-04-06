@@ -77,6 +77,8 @@ public class RSA {
 				
 		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException {
 			
+			System.out.println("Nome: "+ nome);
+			
 			X509Certificate cert = null;
 			
 			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");

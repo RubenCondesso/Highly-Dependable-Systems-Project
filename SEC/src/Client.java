@@ -133,20 +133,9 @@ public class Client  {
 	
 	// Client wants to sell some specific good
 	private static String intentionToSell (String good){
-		
-		//check if the good in hand are in the list of goods of this client
-		for (Map.Entry<String, String> item : goodsList.entrySet()) {
-			
-			//the good of the client
-			String key = item.getKey();
-			
-			if (key.equals(good)){
 				
-				return good;
-			}
-		}
-		
-		return null;
+		return good;
+	
 	}
 	
 	//Client wants to buy a specific good from another client
@@ -546,21 +535,11 @@ public class Client  {
 					String msgGoodToServer = scan.nextLine();
 					
 					msgGoodToServer=intentionToSell(msgGoodToServer);
-					
-					//The good was found in the good's list
-					if(msgGoodToServer != null){
-						
-						byte[] tempBytes = msgGoodToServer.getBytes();
-						
-						client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes));	
-						
-					}
-					
-					else{
-						
-						System.out.println("Something went wrong. The good you typed is not in your good's list. ");
-					}
-					
+							
+					byte[] tempBytes = msgGoodToServer.getBytes();	
+				
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes));	
+							
 				}
 				
 				// message to the server to get the state of some good

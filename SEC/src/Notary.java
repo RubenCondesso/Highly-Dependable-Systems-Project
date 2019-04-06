@@ -186,7 +186,7 @@ public class Notary {
 			
 			message=w[0]+w[2];
 						
-			String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + "\n";
+			String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + ". Inform the Notary about the transfer. "  + "\n";
 			
 			boolean found=false; 
 						
@@ -271,6 +271,25 @@ public class Notary {
 			}
 		}
 		broadcast(notif + disconnectedClient + " has left the application. " + notif);
+	}
+	
+	
+	
+	// to error message to a specific client
+	private synchronized boolean sendErrorMsg(String clientName, String errorMsg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+			
+		for(int t = clientsList.size(); --t >= 0;) {
+				
+			ClientThread cT1 = clientsList.get(t);
+			
+			if(clientName.equals(cT1.getClientID())){
+				
+				cT1.writeMsg(errorMsg);
+			}			
+		}
+			
+		return true;
+			
 	}
 	
 	
@@ -383,6 +402,58 @@ public class Notary {
 		}
 		
 		
+		//check if the clientID is on the application
+		public boolean checkClientID(String id) {
+			
+			return true;
+			
+		}
+		
+
+
+		//check if the good is on the application
+		public boolean checkGood(String good) {
+			
+			for (Map.Entry<String, String> item : clientsGoodsList.entrySet()){
+				
+				String key = item.getKey();				
+				
+				if (key.equals(good)){
+					
+					return true;
+				}
+				
+			}
+	
+			return false;
+			
+		}
+		
+		
+		//check if the clientID is the owner of the good, and the good exists on the application
+		public boolean checkGoodToSell(String id, String good) {
+			
+			
+			for (Map.Entry<String, String> item : clientsGoodsList.entrySet()){
+				
+				String key = item.getKey();
+				String value = item.getValue();
+		    
+				// Check if the client it is the owner of the good
+				if (value.equals(id) && key.equals(good)){
+					
+					return true;
+					
+				}
+			}
+			
+			return false;
+			
+		}
+		
+		
+		
+		
 		// infinite loop to read and forward message
 		public void run() {
 			
@@ -478,24 +549,19 @@ public class Notary {
 					case MessageHandler.SELL:
 					
 						display("The client " + clientID + " want to sell the following good: " + mensagemDecryt);
-										
-						int c=0;
-										
-						for (Map.Entry<String, String> item : clientsGoodsList.entrySet()){
 						
-							String key = item.getKey();
-							String value = item.getValue();
-					    
-							// Check if the client it is the owner of the good
-							if (value.equals(clientID) && key.equals(mensagemDecryt)){
+						// Check if the good exists on the application 
+						if(checkGood(mensagemDecryt) == true){
+							
+							//check if the clientID is the owner of the good, and the good exists on the application
+							if (checkGoodToSell(clientID, mensagemDecryt) == true){
 								
-								c=1;
-					    	
-						    	//put the good on the list of products to sell
-						    	clientsGoodsToSell.put(key, value);
+								//put the good on the list of products to sell
+						    	clientsGoodsToSell.put(clientID, mensagemDecryt);
 						    	
 						    	display("The good is now for sale.");
 						    	
+
 						    	try {
 						    		
 									writeMsg("Yes" + "\n");
@@ -504,24 +570,41 @@ public class Notary {
 									
 									e.printStackTrace();
 								}
-					 
+						    								
 							}
+							
+							else{
+								
+								display("The client is not the owner of the good. ");
+								
+								try {
+									
+									writeMsg("No" + "\n");
+									
+									sendErrorMsg(clientID, "Your are not the owner of that good." + "\n");
+									
+								} catch (IOException | GeneralSecurityException  e) {
+									
+									e.printStackTrace();
+								}
+							}
+							
 						}
 						
-						//The ClientID and/or his good was not found in the clients goods list    
-						if(c == 0){
+						else {
 							
-							display("The ClientID and/or his good was not found in the clients goods list.");
+							display("The good was not found in the clients goods list. ");
 							
 							try {
 								
 								writeMsg("No" + "\n");
+														
+								sendErrorMsg(clientID, "The good was not found in the clients goods list." + "\n");
 								
 							} catch (IOException | GeneralSecurityException  e) {
 								
 								e.printStackTrace();
 							}
-						
 						}
 					
 						break;
@@ -531,50 +614,71 @@ public class Notary {
 						
 						display("The client " + clientID + " want to check the state of the following good: " + mensagemDecryt);
 						
-						int s=0;
+						int s= 0;
 						
-						for (Map.Entry<String, String> item0 : clientsGoodsList.entrySet()){
+						int l = 0;
 						
-						    String checkCliente = item0.getValue();
-						    
-						    // Check if the client exists on the application 
-						    if (checkCliente.equals(clientID)){
-						    	
-						    	for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-									
-									String key = item.getKey();
-								    String value = item.getValue();
-								    									    
-								    //Verify if the requested good is on sale 
-								    if (key.equals(mensagemDecryt) && (s != 1)){
-								    	
-								    	s=1;
-								    	
-								    	display("The good is for sale.");
-								    	
-								    	try {
-								    		
-											writeMsg("Good: " + key + ", " + "Owner: " + value + "\n");
-											
-										} catch (IOException | GeneralSecurityException  e) {
-										
-											e.printStackTrace();
-										}
-								    
-								    }						
-								}
-						    	
-						    }
-						}						
-																
-						//This good is not for sale   
-						if(s == 0){
+						// Check if the good exists on the application 
+						if(checkGood(mensagemDecryt) == true){
 							
-							display("The good is not for sale or does not exist or the ID does not exist in the application. ");
+							l = 1;
+							
+							for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+								
+								String key = item.getKey();
+							    String value = item.getValue();
+							    							    									    
+							    //Verify if the requested good is on sale 
+							    if (value.equals(mensagemDecryt) && (s != 1)){
+							    	
+							    	s=1;
+							    	
+							    	display("The good is for sale.");
+							    	
+							    	try {
+							    		
+										writeMsg("Good: " + value + ", " + "Owner: " + key + "\n");
+										
+									} catch (IOException | GeneralSecurityException  e) {
+									
+										e.printStackTrace();
+									}
+							    
+							    }						
+							}
+							
+						}
+						
+						
+						//This good is not for sale   
+						if(s == 0 && l == 1){
+							
+							display("The good is not for sale. ");
 							
 							try {
 								
 								writeMsg("No" + "\n");
+														
+								sendErrorMsg(clientID, "The good is not for sale. " + "\n");
+																	
+							} catch (IOException | GeneralSecurityException  e) {
+								
+							
+								e.printStackTrace();
+							}
+							
+						}
+						
+						//The good does not exist on the application.
+						else if(l == 0){
+							
+							display("The good does not exist on the application. ");
+							
+							try {
+								
+								writeMsg("No" + "\n");
+														
+								sendErrorMsg(clientID, "The good does not exist on the application. " + "\n");
 																
 							} catch (IOException | GeneralSecurityException  e) {
 								
@@ -592,169 +696,272 @@ public class Notary {
 						
 						boolean cli;
 						
-						try {
-																					
-							String[] w = (mensagemDecryt.toString()).split(" ",3);			
-							
-							for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-								
-								String key = item.getKey();
-							    String value = item.getValue();
-							    
-							    //Verify if the requested good is for sale 
-							    if (key.equals(w[1])){
-							    	
-							    	n=1;
-							    	
-							    	//The Buyer is the Seller
-							    	if (value.equals(clientID)){
-							    		
-							    		display("A client can't buy his own goods. ");
-							    									    		
-										writeMsg("No" + "\n");
-										
-							    	}
-									
-									
-									
-									else{
-										
-										cli = broadcast(clientID + ": " + mensagemDecryt);
-										
-										if(cli == false) {
-											
-											String msg = notif + "Sorry. No such user exists." + notif;
-											writeMsg(msg);
-										}
-										
-										else{
-											
-											//The operation was successful
-											writeMsg("Yes" +"\n");
-										}
-										
-									}
-							    }						
-							}
-							
-							//This good is not for sale   
-							if(n == 0){
-								
-								display("The good is not for sale or does not exist. ");
-								writeMsg("No" + "\n");
-								
-							}
-							
-							break;
-							
-						} catch (IOException | GeneralSecurityException  e) {
-						
-							e.printStackTrace();
-						}
-						
-					
-					case MessageHandler.TRANSFERGOOD:
-						
-						String[] m = (mensagemDecryt.toString()).split(" ",3);
-						
-						//The goodID that will be transfer
-						String good = m[0];
-						
-						//The BuyerID
-						String buyer = m[1];
-						
-						int p = 0;
-						
-						for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-							
-							String key = item.getKey();
-						    String value = item.getValue();
-						    
-						    //Verify if the requested good is for sale and if the client it's the owner of the good
-						    if (value.equals(clientID) && key.equals(good)){
-						    	
-						    	//The Buyer is the Seller
-						    	if(clientID.equals(buyer)){
-						    	
-						    		display("A client can't transfer his own goods to himself. ");
-						    		
-									try {
-						
-							    		writeMsg("No" + "\n");
-							    		
-										
-									} catch (IOException | GeneralSecurityException e) {
-										
-										e.printStackTrace();
-									}
-						    	}
-						    	
-						    	else{
-						    		
-						    		for(int y=clientsList.size(); --y>=0;){
-										
-										ClientThread ct1=clientsList.get(y);
-										String check=ct1.getClientID();
-										
-										//Verify if the Buyer is a client on the list
-										if (check.equals(buyer)){
-											
-											p=1;
-											
-											clientsGoodsList.put(key, buyer);
-											
-											clientsGoodsToSell.remove(key, value);					
-											
-											display("The transfer was successful. ");
-											
-											//Tell the clients that the transfer was successful
-											try {
-																								
-												//inform the seller about the outcome of the transfer
-									    		Boolean response1 = broadcast(clientID + ": " + "The transfer was successful");
-									    		
-									    		writeMsg("Yes" + "\n");
-									    														
-												//inform the buyer about the outcome of the transfer
-									    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "The transfer was successful");
-									    		
-									    		ct1.writeMsg("Yes" + "\n");
-									    		
+						String[] w = (mensagemDecryt.toString()).split(" ",3);
 												
-											} catch (IOException | GeneralSecurityException  e) {
-												
-												e.printStackTrace();
-											}
-											
-										}
-							    	}
-						    		
-						    	}
-						    									
-						    }						
-						}
-						
-						if(p == 0){
-							
-							display("The transfer was unsuccessful. ");
+						if (w.length == 2){
 							
 							try {
 								
-								writeMsg("No" + "\n");
+								// Check if the good exists on the application 
+								if(checkGood(w[1]) == true){
+									
+									for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+										
+										String key = item.getKey();
+									    String value = item.getValue();
+									    
+									    //Verify if the requested good is for sale 
+									    if (value.equals(w[1])){
+									    	
+									    	n=1;
+									    	
+									    	//The Buyer is the Seller
+									    	if (key.equals(clientID)){
+									    		
+									    		display("A client can't buy his own goods. ");
+									    		
+									    		writeMsg("No" + "\n");
+									    		
+									    		sendErrorMsg(clientID, "You can't buy your own goods." + "\n");
+												
+									    	}
+											
+											else{
+												
+												cli = broadcast(clientID + ": " + mensagemDecryt);
+												
+												if(cli == false) {
+													
+													String msg = notif + "Sorry. No such user exists." + notif;
+													
+													writeMsg(msg);
+												}
+												
+												else{
+													
+													//The operation was successful
+													writeMsg("Yes" +"\n");
+												}
+												
+											}
+									    }						
+									}
+									
+									//This good is not for sale   
+									if(n == 0){
+										
+										display("The good is not for sale. ");
+										
+										writeMsg("No" + "\n");
+										
+										sendErrorMsg(clientID, "The good is not for sale." + "\n");
+										
+									}
+									
+								}
 								
+								else {
+									
+									display("The good does not exist on the application. ");
+									
+									writeMsg("No" + "\n");
+																
+									sendErrorMsg(clientID, "The good does not exist on the application. " + "\n");
+					
+								}
+															
 							} catch (IOException | GeneralSecurityException  e) {
-								
+							
 								e.printStackTrace();
 							}
 							
 						}
 						
 						
-						break;
-	
-					}
-				}
+						else {
+							
+							try {
+								
+								sendErrorMsg(clientID, "Wrong Input. " + "\n");
+								
+							} catch (IOException | GeneralSecurityException e) {
+							
+								e.printStackTrace();
+							}	
+							
+						}
 						
+						break;
+						
+					
+					case MessageHandler.TRANSFERGOOD:
+						
+						String[] m = (mensagemDecryt.toString()).split(" ", 3);
+												
+						if (m.length == 2){
+							
+							//The goodID that will be transfer
+							String good = m[0];
+							
+							//The BuyerID
+							String buyer = m[1];
+							
+							int p = 0;
+							int b = 0;
+							
+							// Check if the good exists on the application 
+							if(checkGood(m[0]) == true){
+							
+								for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+									
+									String key = item.getKey();
+								    String value = item.getValue();
+								    
+								    //Verify if the requested good is for sale and if the client it's the owner of the good
+								    if (key.equals(clientID) && value.equals(good)){
+								    	
+								    	b=1;
+								    	
+								    	//The Buyer is the Seller
+								    	if(clientID.equals(buyer)){
+								    	
+								    		display("A client can't transfer his own goods to himself. ");
+								    		
+											try {
+												
+												writeMsg("No" + "\n");
+												
+												sendErrorMsg(clientID, "You can't transfer your own good to yourself. " + "\n");		
+												
+											} catch (IOException | GeneralSecurityException e) {
+												
+												e.printStackTrace();
+											}
+								    	}
+								    	
+								    	else{
+								    		
+								    		for(int y=clientsList.size(); --y>=0;){
+												
+												ClientThread ct1=clientsList.get(y);
+												String check=ct1.getClientID();
+												
+												//Verify if the Buyer is a client on the list
+												if (check.equals(buyer)){
+													
+													p=1;
+													
+													clientsGoodsList.put(value, buyer);
+													
+													clientsGoodsList.remove(value, key);
+													
+													clientsGoodsToSell.remove(key, value);	
+													
+													System.out.println("Lista de vendas: " + clientsGoodsToSell);
+													
+													System.out.println("Lista de goods: " + clientsGoodsList);
+													
+													display("The transfer was successful. ");
+													
+													//Tell the clients that the transfer was successful
+													try {
+														
+														writeMsg("Yes" + "\n");
+																										
+														//inform the seller about the outcome of the transfer
+											    		Boolean response1 = broadcast(clientID + ": " + "The transfer was successful. ");
+											    		
+											    		ct1.writeMsg("Yes" + "\n");
+											    														
+														//inform the buyer about the outcome of the transfer
+											    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "The transfer was successful. ");									    		
+														
+													} catch (IOException | GeneralSecurityException  e) {
+														
+														e.printStackTrace();
+													}
+													
+												}
+									    	}
+								    		
+								    		
+								    		
+								    	}
+								    									
+								    }						
+								}
+								
+								// The ID of the buyer does not correspond to any of the ID clients of the Clients's List
+								if(p == 0 && b == 1){
+									
+									display("The transfer was unsuccessful. ");
+									
+									try {
+										
+										writeMsg("No" + "\n");
+										
+										sendErrorMsg(clientID, "The ID of the buyer does not correspond to any of the ID clients of the Clients's List" + "\n");
+										
+									} catch (IOException | GeneralSecurityException  e) {
+										
+										e.printStackTrace();
+									}
+									
+								}
+								
+								//The good is not for sale
+								else if (b == 0){
+									
+									display("The good is not for sale. ");
+									
+									try {
+										
+										writeMsg("No" + "\n");
+										
+										sendErrorMsg(clientID, "The good is not for sale." + "\n");
+																			
+									} catch (IOException | GeneralSecurityException e) {
+									
+										e.printStackTrace();
+									}
+									
+								}
+								
+							}
+							
+							else {
+								
+								display("The good does not exist on the application. ");
+								
+								try {
+									
+									writeMsg("No" + "\n");
+									
+									sendErrorMsg(clientID, "The good does not exist on the application. " + "\n");
+									
+								} catch (IOException | GeneralSecurityException e) {
+								
+									e.printStackTrace();
+								}
+							
+							}					
+						}
+						
+						else {
+							
+							try {
+								
+								sendErrorMsg(clientID, "Wrong Input. " + "\n");
+								
+							} catch (IOException | GeneralSecurityException e) {
+							
+								e.printStackTrace();
+							}	
+						}
+						
+						break;
+					}
+				}		
 			}
 			
 			// if out of the loop then disconnected and remove from client list
