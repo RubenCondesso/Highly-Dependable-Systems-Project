@@ -10,6 +10,7 @@ import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.text.SimpleDateFormat;
 import java.util.Scanner;
 
 //import java.math.BigInteger;
@@ -38,6 +39,12 @@ public class Client  {
 		
 	MessageHandler msgEncrypt;
 	MessageHandler message;
+	
+	//Sequence Number -> Guarantee freshness of messages
+	private static int seqNumber;
+	
+	//real timestamp
+	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
 			
 	//List of goods of the client
 	private static HashMap<String, String> goodsList = new HashMap<String, String>();
@@ -88,8 +95,6 @@ public class Client  {
 									
 			clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
 						
-			// set the socket SO timeout to 10 seconds
-			//socket.setSoTimeout(10*1000);
 		} 
 		
 		// exception handler if it failed
@@ -162,18 +167,24 @@ public class Client  {
 	}
 			
 	/*
-	 * To send a message to the server
+	 * To send a message to the Notary
 	 */
 	void sendMessage(MessageHandler msg) throws UnrecoverableKeyException, KeyStoreException, CertificateException {
 		
 		try {
 						
 			msgEncrypt = null;
-			
+						
 			//Client will send a normal message encrypted				
-			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())));
+			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())), encryptMessage(new String(msg.getSeq())));
 							
 			sOutput.writeObject(msgEncrypt);
+			
+			String count =  new String(msg.getSeq());
+					
+			seqNumber = Integer.parseInt(count) + 1; 
+						
+			socket.setSoTimeout(5000*100);  //set timeout to 500 seconds
 										
 		}
 		
@@ -248,13 +259,13 @@ public class Client  {
 	        	String idConnection = "0.0.0.0" + ":" + socket.getPort();
 	    			        	
 	        	PublicKey prK = readPublicKeyFromFile(idConnection + "public.key");
-	            
+	        		            
 	        	cipher = Cipher.getInstance("RSA");
-	            	        	
+	        		            	        	
 	        	cipher.init(Cipher.DECRYPT_MODE, prK);
 	             
-	        	byte[] msg = cipher.doFinal(encryptedMessage);		            
-	             
+	        	byte[] msg = cipher.doFinal(encryptedMessage);	
+	        		             
 	        	return new String(msg);
 	             
 	        }
@@ -416,7 +427,8 @@ public class Client  {
 		
 		System.out.println("Enter the Client Name: ");
 		clientID = scan.nextLine();
-
+		
+		
 		// different case according to the length of the arguments.
 		switch(args.length) {
 		
@@ -470,6 +482,8 @@ public class Client  {
 				
 		RSA rsa = new RSA();
 		rsa.createRSA(clientConnection);
+		
+		seqNumber = 0;
 				
 		System.out.println("Type 'ENTER' to enter in the application");
 		
@@ -497,8 +511,10 @@ public class Client  {
 					setGoodsClient(clientID + "Kiwi", clientID);
 												
 					String temp =getGoodsClient().toString();
+					
+					String tempSeq = Integer.toString(seqNumber);
 																					
-					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes()));
+					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes()));
 					
 					i=1;
 					
@@ -521,8 +537,10 @@ public class Client  {
 					String temp = "";
 					
 					byte[] tempBytes = temp.getBytes();
+					
+					String tempSeq = Integer.toString(seqNumber);
 													
-					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes));
+					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes()));
 					
 					break;
 				}
@@ -537,8 +555,10 @@ public class Client  {
 					msgGoodToServer=intentionToSell(msgGoodToServer);
 							
 					byte[] tempBytes = msgGoodToServer.getBytes();	
+					
+					String tempSeq = Integer.toString(seqNumber);
 				
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes));	
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes()));	
 							
 				}
 				
@@ -552,8 +572,10 @@ public class Client  {
 					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
 					
 					byte[] tempBytes =msgGoodStateToServer.getBytes();
+					
+					String tempSeq = Integer.toString(seqNumber);
 															
-					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes));	
+					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes()));	
 																							
 				}
 				
@@ -568,7 +590,9 @@ public class Client  {
 					
 					byte[] tempBytes = msgGoodToBuy.getBytes();
 					
-					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes));
+					String tempSeq = Integer.toString(seqNumber);
+					
+					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes()));
 																										
 				}
 				
@@ -583,7 +607,9 @@ public class Client  {
 					
 					byte[] tempBytes = msgTransfer.getBytes();
 					
-					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes));	
+					String tempSeq = Integer.toString(seqNumber);
+					
+					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes, tempSeq.getBytes()));	
 																													
 				}
 				
@@ -621,13 +647,26 @@ public class Client  {
 					
 					// read the message form the input datastream
 					message = (MessageHandler) sInput.readObject();
-					
+										
 					String msgDecrypt = decryptMessage(message.getData());
 					
-					// print the message
-					System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
+					String seqDecryt = decryptMessage(message.getSeq());
 					
-					System.out.print("> ");
+					if (seqNumber == Integer.parseInt(seqDecryt)){
+						
+						seqNumber ++ ;
+						
+						// print the message
+						System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
+						
+						System.out.print("> ");
+						
+					}
+					
+					else {
+						
+						display("The Message hasn't the right sequence number. Won't accept it");
+					}
 															
 				}
 				

@@ -18,13 +18,21 @@ public class MessageHandler implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	byte[] message;
+	
+	byte[] seq;
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message) {
+	MessageHandler(int type, byte [] message, byte[] seq) {
 		
+		//Type of message
 		this.type = type;
+		
+		//message
 		this.message = message;
+		
+		//sequence number of message
+		this.seq=seq;
 	}
 	
 	int getType() {
@@ -35,7 +43,12 @@ public class MessageHandler implements Serializable {
 	byte[] getData(){
 		
 		return message;
-}
+	}
+	
+	byte[] getSeq() {
+		
+		return seq;
+	}
 
 	
 }

@@ -77,7 +77,7 @@ public class RSA {
 				
 		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException {
 			
-			System.out.println("Nome: "+ nome);
+			System.out.println("Identificação da Ligação: "+ nome);
 			
 			X509Certificate cert = null;
 			
