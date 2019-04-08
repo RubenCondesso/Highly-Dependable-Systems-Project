@@ -31,6 +31,9 @@ public class Notary {
 	
 	// HashMap to keep the goods to sell of each Client
 	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
+	
+	// HashMap to keep the goods interest of each Buyer
+	private HashMap<String, String> buyersInterest = new HashMap<String,String>();
 				
 	// to display time
 	private SimpleDateFormat sdf;
@@ -416,7 +419,6 @@ public class Notary {
 		public boolean checkClientID(String id) {
 			
 			return true;
-			
 		}
 		
 
@@ -436,7 +438,6 @@ public class Notary {
 			}
 	
 			return false;
-			
 		}
 		
 		
@@ -453,12 +454,28 @@ public class Notary {
 				if (value.equals(id) && key.equals(good)){
 					
 					return true;
-					
 				}
 			}
 			
 			return false;
+		}
+		
+		//check if buyer has shown interest in some good
+		public boolean checkBuyerInterest(String id, String good){
 			
+			for (Map.Entry<String, String> item : buyersInterest.entrySet()){
+				
+				String key = item.getKey();
+				String value = item.getValue();
+		    
+				// Check if the Buyer has shown interest in that good
+				if (key.equals(id) && value.equals(good)){
+					
+					return true;
+				}
+			}
+			
+			return false;
 		}
 		
 		
@@ -761,6 +778,9 @@ public class Notary {
 														
 														else{
 															
+															//Add the Buyer and his interest on this good to buyersInterest list
+															buyersInterest.put(clientID, value);
+															
 															//The operation was successful
 															writeMsg("Yes" +"\n");
 														}
@@ -824,12 +844,13 @@ public class Notary {
 									
 									//The goodID that will be transfer
 									String good = m[0];
-									
+																											
 									//The BuyerID
 									String buyer = m[1];
 									
-									int p = 0;
 									int b = 0;
+									
+									int k = 0;
 									
 									// Check if the good exists on the application 
 									if(checkGood(m[0]) == true){
@@ -871,32 +892,46 @@ public class Notary {
 														//Verify if the Buyer is a client on the list
 														if (check.equals(buyer)){
 															
-															p=1;
+															k = 1;
 															
-															clientsGoodsList.put(value, buyer);
-															
-															clientsGoodsList.remove(value, key);
-															
-															clientsGoodsToSell.remove(key, value);	
-															
-															System.out.println("Lista de vendas: " + clientsGoodsToSell);
-															
-															System.out.println("Lista de goods: " + clientsGoodsList);
-															
-															display("The transfer was successful. ");
-															
-															//Tell the clients that the transfer was successful
 															try {
 																
-																writeMsg("Yes" + "\n");
-																												
-																//inform the seller about the outcome of the transfer
-													    		Boolean response1 = broadcast(clientID + ": " + "The transfer was successful. ");
-													    		
-													    		ct1.writeMsg("Yes" + "\n");
-													    														
-																//inform the buyer about the outcome of the transfer
-													    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "The transfer was successful. ");									    		
+																System.out.println("lista de interesses: " + buyersInterest);
+																
+																//check if the buyer has shown interest before in that good
+																if(checkBuyerInterest(buyer, good) == true){
+																	
+																	clientsGoodsList.put(value, buyer);
+																	
+																	clientsGoodsList.remove(value, key);
+																	
+																	clientsGoodsToSell.remove(key, value);	
+																	
+																	buyersInterest.remove(buyer, good);
+																	
+																	display("The transfer was successful. ");
+																	
+																	//Tell the clients that the transfer was successful
+																	writeMsg("Yes" + "\n");
+																	
+																	//inform the seller about the outcome of the transfer
+														    		Boolean response1 = broadcast(clientID + ": " + "The transfer was successful. ");
+														    		
+														    		ct1.writeMsg("Yes" + "\n");
+														    														
+																	//inform the buyer about the outcome of the transfer
+														    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "The transfer was successful. ");		
+																	
+																}
+																
+																else {
+																	
+																	writeMsg("No" + "\n");
+																	
+																	sendErrorMsg(clientID, "The buyer has not shown interest in that good before. " + "\n");
+																	
+																	
+																}							    		
 																
 															} catch (IOException | GeneralSecurityException  e) {
 																
@@ -904,35 +939,31 @@ public class Notary {
 															}
 															
 														}
+														
 											    	}
 										    		
-										    		
-										    		
+										    		// the Buyer is not on the application
+										    		if (k == 0){
+										    			
+										    			try {
+															
+															writeMsg("No" + "\n");
+															
+															sendErrorMsg(clientID, "The Buyer is not on the application. " + "\n");
+																															
+														} catch (IOException | GeneralSecurityException e) {
+															
+															e.printStackTrace();
+														}
+										    		}
+										    	
 										    	}
 										    									
 										    }						
 										}
-										
-										// The ID of the buyer does not correspond to any of the ID clients of the Clients's List
-										if(p == 0 && b == 1){
-											
-											display("The transfer was unsuccessful. ");
-											
-											try {
-												
-												writeMsg("No" + "\n");
-												
-												sendErrorMsg(clientID, "The ID of the buyer does not correspond to any of the ID clients of the Clients's List" + "\n");
-												
-											} catch (IOException | GeneralSecurityException  e) {
-												
-												e.printStackTrace();
-											}
-											
-										}
-										
+									
 										//The good is not for sale
-										else if (b == 0){
+										if (b == 0){
 											
 											display("The good is not for sale. ");
 											

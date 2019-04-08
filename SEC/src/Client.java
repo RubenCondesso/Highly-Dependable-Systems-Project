@@ -355,40 +355,7 @@ public class Client  {
 		
 	}
 	 
-	
-	/*
-	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
-			
-		FileInputStream in = new FileInputStream(fileName);
-		ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
-
-		try {
-		  	  
-			BigInteger m = (BigInteger) oin.readObject();
-		  	  
-		  	BigInteger e = (BigInteger) oin.readObject();
-		  	  
-		  	RSAPrivateKeySpec keySpecifications = new RSAPrivateKeySpec(m, e);
-		  	  
-		  	KeyFactory kF = KeyFactory.getInstance("RSA");
-		  	  
-		  	PrivateKey privK = kF.generatePrivate(keySpecifications);
-		  	  
-		  	return privK;
-		  	
-		} catch (Exception e) {
-			
-				throw new RuntimeException("Some error in reading private key", e);
-		  	
-		  } finally {
-		 	   
-			  oin.close();
-		 	
-		  }
-			
-	}
-	*/
-	
+		
 	
 	/*
 	 * When something goes wrong
