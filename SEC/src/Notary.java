@@ -97,7 +97,7 @@ public class Notary {
 			
 			rsa.createCert(notaryConnection,pubKey,privKey);
 			
-			//30 seconds to message expire
+			//10 seconds to message expire
 			expireTime = 10;
 			
 			
@@ -109,7 +109,7 @@ public class Notary {
 				// accept connection if requested from client
 				Socket socket = serverSocket.accept();
 				
-				// break if server stoped
+				// break if server stopped
 				if(!serverRunning)
 					
 					break;
