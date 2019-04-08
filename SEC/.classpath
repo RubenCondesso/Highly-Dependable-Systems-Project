@@ -2,10 +2,7 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
-	<classpathentry kind="lib" path="C:/Users/Ruben/OneDrive/IST/S.E.Confiabilidade/Projeto/bcprov-jdk16-145.jar">
-		<attributes>
-			<attribute name="javadoc_location" value="https://docs.oracle.com/javase/8/docs/api/"/>
-		</attributes>
-	</classpathentry>
+	<classpathentry kind="lib" path="/home/andre/Desktop/bcprov-jdk16-145.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/5"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

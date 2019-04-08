@@ -17,7 +17,7 @@ import java.sql.Date;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
-import java.security.KeyStore;
+
 import java.security.cert.X509Certificate;
 
 	/*
@@ -59,11 +59,52 @@ public class RSA {
 			
 			RSA rsa = new RSA();
 			
-			rsa.createRSA(nome);
+			KeyPair keys = rsa.createKeyPairs(nome);
+			
+			PublicKey pubKey = rsa.checkPublicKey(nome,keys);
+			
+			PrivateKey privKey = rsa.checkPrivateKey(keys);
+			
+			rsa.createCert(nome,pubKey,privKey);
 			
 		}
 		
+		KeyPair createKeyPairs(String nome) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+			
+			System.out.println("Identificaï¿½ï¿½o da Ligaï¿½ï¿½o: "+ nome);
+			
+			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
+			
+			kPairGen.initialize(1024);
+			
+			KeyPair kPair = kPairGen.genKeyPair();
+			
+			return kPair;
+			
+		}
 		
+		PublicKey checkPublicKey(String nome, KeyPair kPair) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+			
+			publicKey = kPair.getPublic();
+			
+			KeyFactory fact = KeyFactory.getInstance("RSA");
+			
+			RSAPublicKeySpec pub = fact.getKeySpec(kPair.getPublic(), RSAPublicKeySpec.class);
+			
+			serializeToFile(nome + "public.key", pub.getModulus(), pub.getPublicExponent());
+			
+			return (PublicKey) publicKey;
+			
+			
+		}
+		
+		PrivateKey checkPrivateKey(KeyPair kPair) {
+			
+			privateKey = kPair.getPrivate();
+			
+			return (PrivateKey) privateKey;
+			
+		}
 		
 		@SuppressWarnings("deprecation")
 		// ============ Generating key pair =======
@@ -74,29 +115,12 @@ public class RSA {
 		 * 					the keys will be saved as object in two separate files.
 		 */
 				
-		void createRSA(String nome) throws NoSuchAlgorithmException, GeneralSecurityException, IOException {
+		X509Certificate createCert(String nome, PublicKey pubKey, PrivateKey privKey) throws NoSuchAlgorithmException, GeneralSecurityException, IOException {
 			
-			System.out.println("Identificação da Ligação: "+ nome);
 			
 			X509Certificate cert = null;
 			
-			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
-			
-			kPairGen.initialize(1024);
-			
-			KeyPair kPair = kPairGen.genKeyPair();
-			
-			publicKey = kPair.getPublic();
-						
-			privateKey = kPair.getPrivate();
-	 
-			KeyFactory fact = KeyFactory.getInstance("RSA");
-			
-			RSAPublicKeySpec pub = fact.getKeySpec(kPair.getPublic(), RSAPublicKeySpec.class);
-			
-			RSAPrivateKeySpec priv = fact.getKeySpec(kPair.getPrivate(), RSAPrivateKeySpec.class);
-			
-			serializeToFile(nome + "public.key", pub.getModulus(), pub.getPublicExponent()); 				// this will give public key file
+							// this will give public key file
 			
 			X509V3CertificateGenerator v3CertGen =  new X509V3CertificateGenerator();
 			
@@ -110,21 +134,23 @@ public class RSA {
 	        
 	        v3CertGen.setSubjectDN(new X509Principal(CERTIFICATE_DN));
 	        
-	        v3CertGen.setPublicKey(kPair.getPublic());
+	        v3CertGen.setPublicKey(pubKey);
 	        
 	        v3CertGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
 	        
-	        cert = v3CertGen.generateX509Certificate(kPair.getPrivate());
+	        cert = v3CertGen.generateX509Certificate(privKey);
 	        
 	     
 	        try {
 	        	
-				saveCert(cert,kPair.getPrivate(), nome);
+				saveCert(cert,privKey, nome);
 				
 			} catch (Exception e) {
 				
 				e.printStackTrace();
 			}
+	        
+	        return cert;
 		
 		}
 		

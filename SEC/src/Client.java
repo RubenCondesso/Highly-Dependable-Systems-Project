@@ -6,7 +6,6 @@ import java.util.*;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
-import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
@@ -86,7 +85,7 @@ public class Client  {
 		this.clientID = clientID;
 				
 	}
-	
+
 	/*
 	 * To start the application
 	 */
@@ -217,7 +216,7 @@ public class Client  {
 		* 
 		* 
 	*/
-	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
+	public byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
 										BadPaddingException, IOException, UnrecoverableKeyException, KeyStoreException, CertificateException{
 	
@@ -256,7 +255,7 @@ public class Client  {
 	 *  
 	*/
 	
-	private String decryptMessage(byte[] encryptedMessage) {
+	public String decryptMessage(byte[] encryptedMessage) {
 		
 	        cipher = null;
 	        
@@ -272,7 +271,9 @@ public class Client  {
 	        		            	        	
 	        	cipher.init(Cipher.DECRYPT_MODE, prK);
 	             
-	        	byte[] msg = cipher.doFinal(encryptedMessage);	
+	        	byte[] msg = cipher.doFinal(encryptedMessage);
+	        	
+	        	String x = new String(msg);
 	        		             
 	        	return new String(msg);
 	             
@@ -456,7 +457,15 @@ public class Client  {
 		
 				
 		RSA rsa = new RSA();
-		rsa.createRSA(clientConnection);
+		
+		KeyPair keys = rsa.createKeyPairs(clientConnection);
+		
+		PublicKey pubKey = rsa.checkPublicKey(clientConnection,keys);
+		
+		PrivateKey privKey = rsa.checkPrivateKey(keys);
+		
+		rsa.createCert(clientConnection,pubKey,privKey);
+		
 		
 		seqNumber = 0;
 				

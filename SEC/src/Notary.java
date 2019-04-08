@@ -89,7 +89,13 @@ public class Notary {
 			
 			RSA rsa = new RSA();
 			
-			rsa.createRSA(notaryConnection);
+			KeyPair keys = rsa.createKeyPairs(notaryConnection);
+			
+			PublicKey pubKey = rsa.checkPublicKey(notaryConnection,keys);
+			
+			PrivateKey privKey = rsa.checkPrivateKey(keys);
+			
+			rsa.createCert(notaryConnection,pubKey,privKey);
 			
 			//30 seconds to message expire
 			expireTime = 10;
