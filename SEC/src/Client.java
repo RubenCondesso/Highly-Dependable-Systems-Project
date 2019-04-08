@@ -10,6 +10,8 @@ import java.security.cert.CertificateException;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Scanner;
 
 //import java.math.BigInteger;
@@ -41,6 +43,9 @@ public class Client  {
 	
 	//Sequence Number -> Guarantee freshness of messages
 	private static int seqNumber;
+	
+	//time to expire message
+	private static int expireTime;
 	
 	//real timestamp
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
@@ -93,6 +98,9 @@ public class Client  {
 			socket = new Socket(server, port);
 									
 			clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
+			
+			//30 seconds to message expire
+			expireTime = 10;
 						
 		} 
 		
@@ -171,11 +179,11 @@ public class Client  {
 	void sendMessage(MessageHandler msg) throws UnrecoverableKeyException, KeyStoreException, CertificateException {
 		
 		try {
-						
+									
 			msgEncrypt = null;
-						
+									
 			//Client will send a normal message encrypted				
-			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())), encryptMessage(new String(msg.getSeq())));
+			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())), encryptMessage(new String(msg.getSeq())), msg.getLocalDate());
 							
 			sOutput.writeObject(msgEncrypt);
 			
@@ -348,40 +356,7 @@ public class Client  {
 		
 	}
 	 
-	
-	/*
-	PrivateKey readPrivateKeyFromFile(String fileName) throws IOException {
-			
-		FileInputStream in = new FileInputStream(fileName);
-		ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
-
-		try {
-		  	  
-			BigInteger m = (BigInteger) oin.readObject();
-		  	  
-		  	BigInteger e = (BigInteger) oin.readObject();
-		  	  
-		  	RSAPrivateKeySpec keySpecifications = new RSAPrivateKeySpec(m, e);
-		  	  
-		  	KeyFactory kF = KeyFactory.getInstance("RSA");
-		  	  
-		  	PrivateKey privK = kF.generatePrivate(keySpecifications);
-		  	  
-		  	return privK;
-		  	
-		} catch (Exception e) {
-			
-				throw new RuntimeException("Some error in reading private key", e);
-		  	
-		  } finally {
-		 	   
-			  oin.close();
-		 	
-		  }
-			
-	}
-	*/
-	
+		
 	
 	/*
 	 * When something goes wrong
@@ -522,8 +497,10 @@ public class Client  {
 					String temp =getGoodsClient().toString();
 					
 					String tempSeq = Integer.toString(seqNumber);
-																					
-					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes()));
+					
+					LocalDateTime time = LocalDateTime.now();
+																										
+					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time));
 					
 					i=1;
 					
@@ -540,16 +517,18 @@ public class Client  {
 			
 			else {
 				
+				String tempSeq = Integer.toString(seqNumber);
+				
+				LocalDateTime time = LocalDateTime.now();
+				
 				// logout if message is LOGOUT
 				if(msg.equalsIgnoreCase("LOGOUT")) {
 					
 					String temp = "";
 					
 					byte[] tempBytes = temp.getBytes();
-					
-					String tempSeq = Integer.toString(seqNumber);
 													
-					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes()));
+					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time));
 					
 					break;
 				}
@@ -564,10 +543,8 @@ public class Client  {
 					msgGoodToServer=intentionToSell(msgGoodToServer);
 							
 					byte[] tempBytes = msgGoodToServer.getBytes();	
-					
-					String tempSeq = Integer.toString(seqNumber);
-				
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes()));	
+									
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time));	
 							
 				}
 				
@@ -581,10 +558,8 @@ public class Client  {
 					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
 					
 					byte[] tempBytes =msgGoodStateToServer.getBytes();
-					
-					String tempSeq = Integer.toString(seqNumber);
-															
-					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes()));	
+																				
+					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time));	
 																							
 				}
 				
@@ -598,10 +573,8 @@ public class Client  {
 					msgGoodToBuy = buyGood(msgGoodToBuy);
 					
 					byte[] tempBytes = msgGoodToBuy.getBytes();
-					
-					String tempSeq = Integer.toString(seqNumber);
-					
-					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes()));
+										
+					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time));
 																										
 				}
 				
@@ -615,10 +588,8 @@ public class Client  {
 					msgTransfer= transferGood(msgTransfer);
 					
 					byte[] tempBytes = msgTransfer.getBytes();
-					
-					String tempSeq = Integer.toString(seqNumber);
-					
-					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes, tempSeq.getBytes()));	
+										
+					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes, tempSeq.getBytes(), time));	
 																													
 				}
 				
@@ -656,27 +627,45 @@ public class Client  {
 					
 					// read the message form the input datastream
 					message = (MessageHandler) sInput.readObject();
-										
+					
+					//get the message
 					String msgDecrypt = decryptMessage(message.getData());
 					
+					//Get the sequence number of the message received
 					String seqDecryt = decryptMessage(message.getSeq());
 					
-					if (seqNumber == Integer.parseInt(seqDecryt)){
+					LocalDateTime t0 = LocalDateTime.now();
+									
+					long diff = ChronoUnit.SECONDS.between(message.getLocalDate(), t0);
+										
+					//check if the message's time has expired 
+					if (diff < expireTime ){
 						
-						seqNumber ++ ;
+						// check if the message has the right sequence number
+						if (seqNumber == Integer.parseInt(seqDecryt)){
+							
+							seqNumber ++ ;
+							
+							// print the message
+							System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
+							
+							System.out.print("> ");
+							
+						}
 						
-						// print the message
-						System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
-						
-						System.out.print("> ");
+						else {
+							
+							display("The Message hasn't the right sequence number. Won't accept it");
+						}
 						
 					}
 					
-					else {
+					//the message has expired
+					else{
 						
-						display("The Message hasn't the right sequence number. Won't accept it");
+						display("The Message has expired. Won't accept it");
 					}
-															
+													
 				}
 				
 				catch(IOException e) {
