@@ -607,7 +607,7 @@ public class Client  {
 	
 	/*
 	 * a class that waits for the message from the server
-	 */
+	*/
 	class ListenFromServer extends Thread {
 
 		public void run() {

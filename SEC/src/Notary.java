@@ -307,7 +307,6 @@ public class Notary {
 	 * > java Server portNumber
 	 * If the port number is not specified 1500 is used
 	*/
-	
 	public static void main(String[] args) throws IOException, GeneralSecurityException {
 		
 		// start server on port 1500 unless a PortNumber is specified 
@@ -460,6 +459,7 @@ public class Notary {
 			return false;
 		}
 		
+		
 		//check if buyer has shown interest in some good
 		public boolean checkBuyerInterest(String id, String good){
 			
@@ -536,7 +536,7 @@ public class Notary {
 								//Convert the message received to a HashMap
 								mensagemDecryt = mensagemDecryt.substring(1, mensagemDecryt.length()-1); //remove curly brackets
 																
-								String[] keyValuePairs = mensagemDecryt.split(",");              //split the string to creat key-value pairs
+								String[] keyValuePairs = mensagemDecryt.split(",");              //split the string to create key-value pairs
 										
 								Map <String,String> map = new HashMap<>();               
 			
@@ -600,7 +600,6 @@ public class Notary {
 								    	
 								    	display("The good is now for sale.");
 								    	
-
 								    	try {
 								    		
 											writeMsg("Yes" + "\n");
@@ -617,10 +616,8 @@ public class Notary {
 										display("The client is not the owner of the good. ");
 										
 										try {
-											
-											writeMsg("No" + "\n");
-											
-											sendErrorMsg(clientID, "Your are not the owner of that good." + "\n");
+																						
+											sendErrorMsg(clientID, "No. Your are not the owner of that good." + "\n");
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
@@ -635,10 +632,8 @@ public class Notary {
 									display("The good was not found in the clients goods list. ");
 									
 									try {
-										
-										writeMsg("No" + "\n");
-																
-										sendErrorMsg(clientID, "The good was not found in the clients goods list." + "\n");
+																										
+										sendErrorMsg(clientID, "No. The good was not found in the clients goods list." + "\n");
 										
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -687,18 +682,15 @@ public class Notary {
 									}
 									
 								}
-								
-								
+							
 								//This good is not for sale   
 								if(s == 0 && l == 1){
 									
 									display("The good is not for sale. ");
 									
 									try {
-										
-										writeMsg("No" + "\n");
-																
-										sendErrorMsg(clientID, "The good is not for sale. " + "\n");
+																										
+										sendErrorMsg(clientID, "No. The good is not for sale. " + "\n");
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -714,10 +706,8 @@ public class Notary {
 									display("The good does not exist on the application. ");
 									
 									try {
-										
-										writeMsg("No" + "\n");
-																
-										sendErrorMsg(clientID, "The good does not exist on the application. " + "\n");
+																									
+										sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
 																		
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -758,10 +748,8 @@ public class Notary {
 											    	if (key.equals(clientID)){
 											    		
 											    		display("A client can't buy his own goods. ");
-											    		
-											    		writeMsg("No" + "\n");
-											    		
-											    		sendErrorMsg(clientID, "You can't buy your own goods." + "\n");
+											    													    		
+											    		sendErrorMsg(clientID, "No. You can't buy your own goods." + "\n");
 														
 											    	}
 													
@@ -793,10 +781,8 @@ public class Notary {
 											if(n == 0){
 												
 												display("The good is not for sale. ");
-												
-												writeMsg("No" + "\n");
-												
-												sendErrorMsg(clientID, "The good is not for sale." + "\n");
+																								
+												sendErrorMsg(clientID, "No. The good is not for sale." + "\n");
 												
 											}
 											
@@ -805,10 +791,8 @@ public class Notary {
 										else {
 											
 											display("The good does not exist on the application. ");
-											
-											writeMsg("No" + "\n");
 																		
-											sendErrorMsg(clientID, "The good does not exist on the application. " + "\n");
+											sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
 							
 										}
 																	
@@ -872,9 +856,7 @@ public class Notary {
 										    		
 													try {
 														
-														writeMsg("No" + "\n");
-														
-														sendErrorMsg(clientID, "You can't transfer your own good to yourself. " + "\n");		
+														sendErrorMsg(clientID, "No. You can't transfer your own good to yourself. " + "\n");		
 														
 													} catch (IOException | GeneralSecurityException e) {
 														
@@ -911,24 +893,17 @@ public class Notary {
 																	
 																	display("The transfer was successful. ");
 																	
-																	//Tell the clients that the transfer was successful
-																	writeMsg("Yes" + "\n");
-																	
 																	//inform the seller about the outcome of the transfer
-														    		Boolean response1 = broadcast(clientID + ": " + "The transfer was successful. ");
-														    		
-														    		ct1.writeMsg("Yes" + "\n");
-														    														
+														    		Boolean response1 = broadcast(clientID + ": " + "Yes. The transfer was successful. ");
+														    													
 																	//inform the buyer about the outcome of the transfer
-														    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "The transfer was successful. ");		
+														    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "Yes. The transfer was successful. ");		
 																	
 																}
 																
 																else {
-																	
-																	writeMsg("No" + "\n");
-																	
-																	sendErrorMsg(clientID, "The buyer has not shown interest in that good before. " + "\n");
+																																		
+																	sendErrorMsg(clientID, "No. The buyer has not shown interest in that good before. " + "\n");
 																	
 																	
 																}							    		
@@ -947,9 +922,7 @@ public class Notary {
 										    			
 										    			try {
 															
-															writeMsg("No" + "\n");
-															
-															sendErrorMsg(clientID, "The Buyer is not on the application. " + "\n");
+															sendErrorMsg(clientID, "No. The Buyer is not on the application. " + "\n");
 																															
 														} catch (IOException | GeneralSecurityException e) {
 															
@@ -968,10 +941,8 @@ public class Notary {
 											display("The good is not for sale. ");
 											
 											try {
-												
-												writeMsg("No" + "\n");
-												
-												sendErrorMsg(clientID, "The good is not for sale." + "\n");
+																								
+												sendErrorMsg(clientID, "No. The good is not for sale." + "\n");
 																					
 											} catch (IOException | GeneralSecurityException e) {
 											
@@ -987,10 +958,8 @@ public class Notary {
 										display("The good does not exist on the application. ");
 										
 										try {
-											
-											writeMsg("No" + "\n");
-											
-											sendErrorMsg(clientID, "The good does not exist on the application. " + "\n");
+																						
+											sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
 											
 										} catch (IOException | GeneralSecurityException e) {
 										
@@ -1004,7 +973,7 @@ public class Notary {
 									
 									try {
 										
-										sendErrorMsg(clientID, "Wrong Input. " + "\n");
+										sendErrorMsg(clientID, "No. Wrong Input. " + "\n");
 										
 									} catch (IOException | GeneralSecurityException e) {
 									
@@ -1016,7 +985,8 @@ public class Notary {
 							}
 							
 						}
-											
+						
+						//Wrong sequence number received
 						else {
 							
 							display("The Message hasn't the right sequence number. Won't accept it");
@@ -1118,7 +1088,6 @@ public class Notary {
 	 * 		Takes byte array of the encrypted message as input.
 	 *  
 	*/
-		
 	private String decryptMessage(byte[] encryptedMessage, String id) {
 		
 		ServerDecryptCipher = null;
@@ -1161,7 +1130,6 @@ public class Notary {
  		* 
  		* 
 	*/
-	
 	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 		
 		ServerEncryptCipher = null;
