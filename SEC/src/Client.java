@@ -7,6 +7,7 @@ import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.text.SimpleDateFormat;
@@ -170,6 +171,12 @@ public class Client  {
 	private void display(String msg) {
 
 		System.out.println(msg);
+		
+	}
+	
+	void sentCertificate(X509Certificate cert) throws IOException {
+		
+		sOutput.writeObject(cert);
 		
 	}
 			
@@ -464,9 +471,8 @@ public class Client  {
 		
 		PrivateKey privKey = rsa.checkPrivateKey(keys);
 		
-		rsa.createCert(clientConnection,pubKey,privKey);
-		
-		
+		X509Certificate cert = rsa.createCert(clientConnection,pubKey,privKey);
+
 		seqNumber = 0;
 				
 		System.out.println("Type 'ENTER' to enter in the application");

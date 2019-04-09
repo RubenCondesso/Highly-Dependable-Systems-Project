@@ -7,9 +7,11 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
+import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.HashMap;
 
 import javax.security.cert.X509Certificate;
@@ -25,30 +27,24 @@ public class Tests {
 	RSA rsa = new RSA();
 	
 	@Test
-	public void test() throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
+	public void testPrivateKeys() throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
+		KeyPair kPair = rsa.createKeyPairs("testKey");
+		PrivateKey expectedPrivKey = rsa.checkPrivateKey(kPair);
+		PublicKey pubKey = rsa.checkPublicKey("testKey", kPair);
+		rsa.createCert("testKey", pubKey, expectedPrivKey);
+		PrivateKey actualPrivKey = client.getPrivateKey("testKey");
+		assertEquals(expectedPrivKey,actualPrivKey);
 		
-		java.security.cert.X509Certificate testCert = rsa.createRSA("testC");
-		java.security.cert.X509Certificate testKey1 = rsa.createRSA("testF");
-		
-		FileInputStream is = new FileInputStream("testC");
-		
-	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-	    
-	    keystore.load(is, "SEC".toCharArray());
-	    
-	    String alias = "testC";
-	
-	    Key key = keystore.getKey(alias, "SEC".toCharArray());
-	    
-	    PrivateKey testKey = (PrivateKey) key;
-	    
-		PrivateKey checkKey = client.getPrivateKey("testC");
-		
-		assertEquals(testKey,checkKey);
-		//assertNotEquals(testKey1,checkKey);
-		
-	
-
 	}
+	@Test
+	public void testPublicKeys() throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
+		KeyPair kPair = rsa.createKeyPairs("testkey");
+		PublicKey expectedPubKey = rsa.checkPublicKey("testkey", kPair);
+		PublicKey actualPubKey = client.readPublicKeyFromFile("testkey" + "public.key");
+		assertEquals(expectedPubKey,actualPubKey);
+		
+	}
+	
+	
 
 }

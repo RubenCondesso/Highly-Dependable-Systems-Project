@@ -11,6 +11,7 @@
 
 import java.io.*;
 import java.math.BigInteger;
+import java.nio.charset.Charset;
 import java.security.*;
 import java.security.spec.*;
 import java.sql.Date;
@@ -141,7 +142,6 @@ public class RSA {
 	        
 	        cert = v3CertGen.generateX509Certificate(privKey);
 	        
-	     
 	        try {
 	        	
 				saveCert(cert,privKey, nome);
@@ -157,7 +157,7 @@ public class RSA {
 		
 		void saveCert(X509Certificate cert, PrivateKey key, String nome) throws Exception {
 			
-	        KeyStore keyStore = KeyStore.getInstance("JKS");    
+	        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());    
 	        
 	        keyStore.load(null, null);
 	        

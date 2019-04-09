@@ -1,5 +1,6 @@
 
 import java.io.*;
+import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 
 /*
@@ -18,6 +19,8 @@ public class MessageHandler implements Serializable {
 	private int type;
 	
 	private static final long serialVersionUID = 1L;
+	
+	X509Certificate cert;
 	
 	byte[] message;
 	
@@ -41,7 +44,8 @@ public class MessageHandler implements Serializable {
 		//time now
 		this.time = time;
 	}
-	
+
+
 	int getType() {
 		
 		return type;
