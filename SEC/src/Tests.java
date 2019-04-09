@@ -1,6 +1,5 @@
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.Socket;
@@ -16,7 +15,7 @@ import java.util.HashMap;
 
 import javax.security.cert.X509Certificate;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
 
 

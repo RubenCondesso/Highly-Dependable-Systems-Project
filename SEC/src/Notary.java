@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.Map.Entry;
@@ -100,7 +101,6 @@ public class Notary {
 			//10 seconds to message expire
 			expireTime = 10;
 			
-			
 			// infinite loop to wait for connections ( till server is active )
 			while(serverRunning) 
 			{
@@ -176,6 +176,8 @@ public class Notary {
 		String time = sdf.format(new Date()) + " " + msg;
 		System.out.println(time);
 	}
+	
+	
 	
 	// to broadcast a message to all Clients
 	private synchronized boolean broadcast(String message) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
@@ -515,16 +517,34 @@ public class Notary {
 				
 				// Server will decrypt the messages from the Client
 				if(message.getData() != null){
-												
+					
+					//number of the connection
 					String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + socket.getPort();
 												
+					//message received 
 					String mensagemDecryt = decryptMessage(message.getData(), idConnection);
 					
+					//sequence number of the message
 					String seqDecryt = decryptMessage(message.getSeq(), idConnection);	
 					
-					LocalDateTime t0 = LocalDateTime.now();
+					//Get the time of the message received
+					String timeReceived = decryptMessage(message.getLocalDate(), idConnection);
 					
-					long diff = ChronoUnit.SECONDS.between(message.getLocalDate(), t0);
+					//format that is gone be used
+					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+					
+					//convert to LocalDateTime type
+					LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
+					
+					//current time
+					LocalDateTime tAtual = LocalDateTime.now();        
+			        
+					//do the difference between times
+					long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
+					
+					System.out.println("Tempo atual: " + tAtual);
+					
+					System.out.println("Tempo recebido: " + localDateReceived);
 					
 					//check if the message's time has expired 
 					if (diff < expireTime ){
@@ -1057,14 +1077,25 @@ public class Notary {
 												
 				msgEncrypt = null;
 				
+				//get the current sequence number
 				String tempSeq = Integer.toString(seqNumber);
 				
-				LocalDateTime time = LocalDateTime.now();
-												
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg), encryptMessage(tempSeq), time);
+				//current time
+				LocalDateTime timeCurrent = LocalDateTime.now();
+				
+				//format that is gone be used
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+				
+				//convert to string
+				String time = timeCurrent.format(formatter);
+				
+				//secure the current message
+				msgEncrypt = new MessageHandler(5, encryptMessage(msg), encryptMessage(tempSeq),  encryptMessage(time));
 								
+				//send the final message
 				sOutput.writeObject(msgEncrypt);
 				
+				//increase the sequence number
 				seqNumber ++;
 				
 				socket.setSoTimeout(5000*100);  //set timeout to 500 seconds

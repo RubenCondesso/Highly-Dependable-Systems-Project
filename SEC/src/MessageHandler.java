@@ -2,6 +2,7 @@
 import java.io.*;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /*
  * This class defines the different type of messages that will be exchanged between the
@@ -26,11 +27,11 @@ public class MessageHandler implements Serializable {
 	
 	byte[] seq;
 	
-	LocalDateTime time;
+	byte[] time;
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq, LocalDateTime time) {
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time) {
 		
 		//Type of message
 		this.type = type;
@@ -61,9 +62,9 @@ public class MessageHandler implements Serializable {
 		return seq;
 	}
 	
-	LocalDateTime getLocalDate(){
+	 byte[] getLocalDate(){
 		
-		return time = LocalDateTime.now();
+		return time;
 	}
 
 	
