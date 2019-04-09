@@ -1,19 +1,12 @@
-import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.*;
-import java.io.FileInputStream;
+import static org.junit.Assert.assertEquals;
 import java.io.IOException;
-import java.net.Socket;
-import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
-import java.security.Key;
 import java.security.KeyPair;
-import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.util.HashMap;
-import javax.security.cert.X509Certificate;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
+
 
 public class Tests {
 

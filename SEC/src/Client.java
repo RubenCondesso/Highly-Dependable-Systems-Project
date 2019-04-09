@@ -12,6 +12,7 @@ import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Scanner;
 
@@ -164,22 +165,25 @@ public class Client  {
 		return message;
 	}
 	
+	
+	// Sent the certificate asked
+	void sentCertificate(X509Certificate cert) throws IOException {
+		
+		sOutput.writeObject(cert);
+		
+	}
+	
+	
 	/*
 	 * To send a message to the console
-	 */
-	
+	*/
 	private void display(String msg) {
 
 		System.out.println(msg);
 		
 	}
 	
-	void sentCertificate(X509Certificate cert) throws IOException {
 		
-		sOutput.writeObject(cert);
-		
-	}
-			
 	/*
 	 * To send a message to the Notary
 	 */
@@ -190,12 +194,15 @@ public class Client  {
 			msgEncrypt = null;
 									
 			//Client will send a normal message encrypted				
-			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())), encryptMessage(new String(msg.getSeq())), msg.getLocalDate());
-							
+			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())), encryptMessage(new String(msg.getSeq())),  encryptMessage(new String(msg.getLocalDate())));
+					
+			// send the final message
 			sOutput.writeObject(msgEncrypt);
 			
+			//convert to string
 			String count =  new String(msg.getSeq());
-					
+				
+			//increase the sequence number
 			seqNumber = Integer.parseInt(count) + 1; 
 						
 			socket.setSoTimeout(5000*100);  //set timeout to 500 seconds
@@ -465,15 +472,23 @@ public class Client  {
 				
 		RSA rsa = new RSA();
 		
+		//generate private and public keys
 		KeyPair keys = rsa.createKeyPairs(clientConnection);
 		
-		PublicKey pubKey = rsa.checkPublicKey(clientConnection,keys);
+		//get the client's public key from the file
+		PublicKey pubKey = rsa.checkPublicKey(clientConnection, keys);
 		
+		//get the client's private key 
 		PrivateKey privKey = rsa.checkPrivateKey(keys);
 		
+		//get the certificate
 		X509Certificate cert = rsa.createCert(clientConnection,pubKey,privKey);
-
+		
+		//sequence number is initialized
 		seqNumber = 0;
+		
+		//format that is gone be used
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 				
 		System.out.println("Type 'ENTER' to enter in the application");
 		
@@ -485,6 +500,7 @@ public class Client  {
 			// read message from user
 			String msg = scan.nextLine();
 			
+			//is the first message between client and server
 			if (i == 0){
 				
 				if (msg.equalsIgnoreCase("ENTER")){
@@ -499,14 +515,21 @@ public class Client  {
 					setGoodsClient(clientID + "Maca", clientID);
 					setGoodsClient(clientID + "Banana", clientID);
 					setGoodsClient(clientID + "Kiwi", clientID);
-												
+						
+					//the message that is gone be sent
 					String temp =getGoodsClient().toString();
 					
+					//sequence number that is gone be sent in message
 					String tempSeq = Integer.toString(seqNumber);
 					
-					LocalDateTime time = LocalDateTime.now();
-																										
-					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time));
+					//get the current time
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+					//convert to string
+			        String time = dateTime.format(formatter);
+			        	
+			        //send message
+					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
 					
 					i=1;
 					
@@ -525,16 +548,18 @@ public class Client  {
 				
 				String tempSeq = Integer.toString(seqNumber);
 				
-				LocalDateTime time = LocalDateTime.now();
-				
 				// logout if message is LOGOUT
 				if(msg.equalsIgnoreCase("LOGOUT")) {
+					
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+			        String time = dateTime.format(formatter);
 					
 					String temp = "";
 					
 					byte[] tempBytes = temp.getBytes();
 													
-					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time));
+					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time.getBytes()));
 					
 					break;
 				}
@@ -549,8 +574,12 @@ public class Client  {
 					msgGoodToServer=intentionToSell(msgGoodToServer);
 							
 					byte[] tempBytes = msgGoodToServer.getBytes();	
+					
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+			        String time = dateTime.format(formatter);
 									
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time));	
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes()));	
 							
 				}
 				
@@ -564,8 +593,12 @@ public class Client  {
 					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
 					
 					byte[] tempBytes =msgGoodStateToServer.getBytes();
+					
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+			        String time = dateTime.format(formatter);
 																				
-					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time));	
+					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes()));	
 																							
 				}
 				
@@ -579,8 +612,12 @@ public class Client  {
 					msgGoodToBuy = buyGood(msgGoodToBuy);
 					
 					byte[] tempBytes = msgGoodToBuy.getBytes();
+					
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+			        String time = dateTime.format(formatter);
 										
-					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time));
+					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes()));
 																										
 				}
 				
@@ -594,8 +631,12 @@ public class Client  {
 					msgTransfer= transferGood(msgTransfer);
 					
 					byte[] tempBytes = msgTransfer.getBytes();
+					
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+			        String time = dateTime.format(formatter);
 										
-					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes, tempSeq.getBytes(), time));	
+					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes, tempSeq.getBytes(), time.getBytes()));	
 																													
 				}
 				
@@ -640,9 +681,19 @@ public class Client  {
 					//Get the sequence number of the message received
 					String seqDecryt = decryptMessage(message.getSeq());
 					
-					LocalDateTime t0 = LocalDateTime.now();
+					//Get the time of the message received
+					String timeReceived = decryptMessage(message.getLocalDate());
+					
+					
+					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+					
+					//convert to LocalDateTime type
+					LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
+					
+					//current time
+					LocalDateTime tAtual = LocalDateTime.now();
 									
-					long diff = ChronoUnit.SECONDS.between(message.getLocalDate(), t0);
+					long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
 										
 					//check if the message's time has expired 
 					if (diff < expireTime ){

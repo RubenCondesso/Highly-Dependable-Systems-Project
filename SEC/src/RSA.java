@@ -72,7 +72,7 @@ public class RSA {
 		
 		KeyPair createKeyPairs(String nome) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
 			
-			System.out.println("Identificaï¿½ï¿½o da Ligaï¿½ï¿½o: "+ nome);
+			System.out.println("Identificação da Ligação: "+ nome);
 			
 			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
 			
@@ -159,12 +159,13 @@ public class RSA {
 	        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());    
 	        
 	        keyStore.load(null, null);
-	        
+	       	        
 	        keyStore.setKeyEntry(nome, key, "SEC".toCharArray(),  new java.security.cert.Certificate[]{cert});
 	        
 	        File file = new File(".", nome);
 	        
 	        keyStore.store( new FileOutputStream(file), "SEC".toCharArray() );
+	        
 	    }
 			
 		// ===== Save the keys with  specifications into files ==============
