@@ -68,7 +68,6 @@ public class RSA {
 			
 			rsa.createCert(nome,pubKey,privKey);
 			
-			
 		}
 		
 		KeyPair createKeyPairs(String nome) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
