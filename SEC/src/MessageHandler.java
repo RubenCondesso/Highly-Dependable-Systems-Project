@@ -44,6 +44,8 @@ public class MessageHandler implements Serializable {
 		
 		//time now
 		this.time = time;
+		
+		this.cert = cert;
 	}
 
 

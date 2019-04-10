@@ -166,14 +166,6 @@ public class Client  {
 	}
 	
 	
-	// Sent the certificate asked
-	void sentCertificate(X509Certificate cert) throws IOException {
-		
-		sOutput.writeObject(cert);
-		
-	}
-	
-	
 	/*
 	 * To send a message to the console
 	*/
@@ -194,7 +186,7 @@ public class Client  {
 			msgEncrypt = null;
 									
 			//Client will send a normal message encrypted				
-			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData())), encryptMessage(new String(msg.getSeq())),  encryptMessage(new String(msg.getLocalDate())));
+			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData()),clientConnection), encryptMessage(new String(msg.getSeq()),clientConnection),  encryptMessage(new String(msg.getLocalDate()),clientConnection));
 					
 			// send the final message
 			sOutput.writeObject(msgEncrypt);
@@ -230,12 +222,12 @@ public class Client  {
 		* 
 		* 
 	*/
-	public byte[] encryptMessage(String s) throws NoSuchAlgorithmException, NoSuchPaddingException, 
+	public byte[] encryptMessage(String s, String nome) throws NoSuchAlgorithmException, NoSuchPaddingException, 
 						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
 										BadPaddingException, IOException, UnrecoverableKeyException, KeyStoreException, CertificateException{
 	
 				
-		PrivateKey pK = getPrivateKey(clientConnection);
+		PrivateKey pK = getPrivateKey(nome);
 		
 		cipher = null;
 	
@@ -245,15 +237,27 @@ public class Client  {
 			
 		cipher.init(Cipher.ENCRYPT_MODE, pK);
 	
-		long time3 = System.nanoTime();
-	
 		cipherText = cipher.doFinal(s.getBytes());
-	
-		long time4 = System.nanoTime();
-	
-		//long totalRSA = time4 - time3;
 				   
 		return cipherText;
+	}
+	
+	public PublicKey sendCertificate(String nome) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
+		
+		FileInputStream is = new FileInputStream(nome);
+		
+	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+	    
+	    keystore.load(is, "SEC".toCharArray());
+	    
+	    String alias = nome;
+	
+	    X509Certificate cert = (X509Certificate) keystore.getCertificate(nome);
+	    
+	    PublicKey pubK = cert.getPublicKey();
+	    
+	    return pubK;
+	    
 	}
 	
 	
@@ -483,6 +487,8 @@ public class Client  {
 		
 		//get the certificate
 		X509Certificate cert = rsa.createCert(clientConnection,pubKey,privKey);
+		
+		client.sendCertificate(clientConnection);
 		
 		//sequence number is initialized
 		seqNumber = 0;
