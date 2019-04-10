@@ -542,10 +542,6 @@ public class Notary {
 					//do the difference between times
 					long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
 					
-					System.out.println("Tempo atual: " + tAtual);
-					
-					System.out.println("Tempo recebido: " + localDateReceived);
-					
 					//check if the message's time has expired 
 					if (diff < expireTime ){
 						

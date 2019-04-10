@@ -375,7 +375,7 @@ public class Client  {
 	/*
 	 * When something goes wrong
 	 * Close the Input/Output streams and disconnect
-	 */
+	*/
 	private void disconnect() {
 		try { 
 			if(sInput != null) sInput.close();
