@@ -72,8 +72,6 @@ public class RSA {
 		
 		KeyPair createKeyPairs(String nome) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
 			
-			System.out.println("Identificação da Ligação: "+ nome);
-			
 			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
 			
 			kPairGen.initialize(1024);

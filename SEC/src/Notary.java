@@ -107,20 +107,21 @@ public class Notary {
 				display("Server waiting for Clients on port " + port + ".");
 				
 				// accept connection if requested from client
-				Socket socket = serverSocket.accept();
-				
-				// break if server stopped
-				if(!serverRunning)
+				if (clientsList.size() < 6)  {
+					Socket socket = serverSocket.accept();
+					// break if server stopped
+					if(!serverRunning)
+						
+						break;
 					
-					break;
-				
-				// if client is connected, create its thread
-				ClientThread t = new ClientThread(socket);
-				
-				//add this client to arraylist
-				clientsList.add(t);
-								
-				t.start();
+					// if client is connected, create its thread
+					ClientThread t = new ClientThread(socket);
+					
+					//add this client to arraylist
+					clientsList.add(t);
+									
+					t.start();
+				}
 								
 			}
 			
@@ -1086,7 +1087,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg), encryptMessage(tempSeq),  encryptMessage(time));
+				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection));
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1121,7 +1122,7 @@ public class Notary {
 	 * 		Takes byte array of the encrypted message as input.
 	 *  
 	*/
-	private String decryptMessage(byte[] encryptedMessage, String id) {
+	public String decryptMessage(byte[] encryptedMessage, String id) {
 		
 		ServerDecryptCipher = null;
 		
@@ -1163,13 +1164,13 @@ public class Notary {
  		* 
  		* 
 	*/
-	private byte[] encryptMessage(String s) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	public byte[] encryptMessage(String s, String nome) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 		
 		ServerEncryptCipher = null;
 				
 		byte[] cipherText = null;
 				
-		PrivateKey prK = getPrivateKey(notaryConnection);
+		PrivateKey prK = getPrivateKey(nome);
 		
 		ServerEncryptCipher = Cipher.getInstance("RSA");  
 				
