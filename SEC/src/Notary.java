@@ -125,6 +125,7 @@ public class Notary {
 								
 			}
 			
+			
 			// try to stop the server
 			try {
 				serverSocket.close();
