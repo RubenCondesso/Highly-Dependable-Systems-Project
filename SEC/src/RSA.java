@@ -19,6 +19,7 @@ import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
 
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 	/*
@@ -56,18 +57,6 @@ public class RSA {
 	
 		public static void main(String[] args) throws NoSuchAlgorithmException, GeneralSecurityException, IOException{
 			
-			// System.out.println("Creating RSA class");
-			
-			RSA rsa = new RSA();
-			
-			KeyPair keys = rsa.createKeyPairs(nome);
-			
-			PublicKey pubKey = rsa.checkPublicKey(nome,keys);
-			
-			PrivateKey privKey = rsa.checkPrivateKey(keys);
-			
-			rsa.createCert(nome,pubKey,privKey);
-			
 		}
 		
 		KeyPair createKeyPairs(String nome) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
@@ -85,12 +74,6 @@ public class RSA {
 		PublicKey checkPublicKey(String nome, KeyPair kPair) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
 			
 			publicKey = kPair.getPublic();
-			
-			KeyFactory fact = KeyFactory.getInstance("RSA");
-			
-			RSAPublicKeySpec pub = fact.getKeySpec(kPair.getPublic(), RSAPublicKeySpec.class);
-			
-			serializeToFile(nome + "public.key", pub.getModulus(), pub.getPublicExponent());
 			
 			return (PublicKey) publicKey;
 			
@@ -139,6 +122,8 @@ public class RSA {
 	        
 	        cert = v3CertGen.generateX509Certificate(privKey);
 	        
+	        savePublicKeys(cert,"publicKeys",nome);
+	        
 	        try {
 	        	
 				saveCert(cert,privKey, nome);
@@ -156,7 +141,7 @@ public class RSA {
 			
 	        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());    
 	        
-	        keyStore.load(null, null);
+	        keyStore.load(null, "SEC".toCharArray());
 	       	        
 	        keyStore.setKeyEntry(nome, key, "SEC".toCharArray(),  new java.security.cert.Certificate[]{cert});
 	        
@@ -165,6 +150,35 @@ public class RSA {
 	        keyStore.store( new FileOutputStream(file), "SEC".toCharArray() );
 	        
 	    }
+		
+		void savePublicKeys(X509Certificate cert, String nome, String entry) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
+			
+			File f = new File(nome);
+			
+			KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			
+			if(f.exists()){
+				
+				java.io.FileInputStream fis = new java.io.FileInputStream(nome);
+				
+			    keyStore.load(fis, "SECpass".toCharArray());
+			    
+			    keyStore.setCertificateEntry(entry, cert);
+			    
+			    keyStore.store( new FileOutputStream(nome), "SECpass".toCharArray() );
+			}
+			
+			else {
+				
+				keyStore.load(null, "SECpass".toCharArray());
+	        
+				keyStore.setCertificateEntry(entry, cert);
+	        
+				keyStore.store( new FileOutputStream(nome), "SECpass".toCharArray() );
+				
+			}
+			
+		}
 			
 		// ===== Save the keys with  specifications into files ==============
 		/*

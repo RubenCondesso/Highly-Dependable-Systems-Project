@@ -13,6 +13,7 @@ import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 
 import javax.crypto.*;
 //import javax.crypto.spec.IvParameterSpec;
@@ -87,6 +88,7 @@ public class Notary {
 			ServerSocket serverSocket = new ServerSocket(port);
 						
 			notaryConnection = serverSocket.getInetAddress().getHostAddress().toString().replace("/","") + ":" + serverSocket.getLocalPort();
+			System.out.println(notaryConnection);
 			
 			RSA rsa = new RSA();
 			
@@ -1131,8 +1133,9 @@ public class Notary {
 		ServerDecryptCipher = null;
 		
 		try
-	        {		
-				PublicKey pK = readPublicKeyFromFile(id + "public.key");
+	        {	
+			
+				PublicKey pK = readPublicKeyFromFile(id);
 			
 	            ServerDecryptCipher = Cipher.getInstance("RSA");
 	           	            
@@ -1226,31 +1229,21 @@ public class Notary {
 		* 
 		* 
 	*/
-	PublicKey readPublicKeyFromFile(String fileName) throws IOException {
+	PublicKey readPublicKeyFromFile(String id) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
 		
-	 	FileInputStream in = new FileInputStream(fileName);
-	  	ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
-
-	  	try {
-	  			  	  
-	  		BigInteger m = (BigInteger) oin.readObject();
-	  	  
-	  		BigInteger e = (BigInteger) oin.readObject();
-	  	  
-	  		RSAPublicKeySpec keySpecifications = new RSAPublicKeySpec(m, e);
-	  	  
-	  		KeyFactory kF = KeyFactory.getInstance("RSA");
-	  	  
-	  		PublicKey pubK = kF.generatePublic(keySpecifications);
-	  	  
-	  		return pubK;
-	  	
-	  	} catch (Exception e) {
-	  		  throw new RuntimeException("Some error in reading public key", e);
-	  	
-	  	} finally {
-	 	   oin.close();
-	 	}
+		java.io.FileInputStream is = new java.io.FileInputStream("publicKeys");
+		
+	    KeyStore keystore = KeyStore.getInstance("JKS");
+	    
+	    keystore.load(is, "SECpass".toCharArray());
+	    
+	    String alias = id;
+	    
+	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
+	    
+	    PublicKey pubKey = cert.getPublicKey();
+	    
+	    return pubKey;
 		
 	}	
 }

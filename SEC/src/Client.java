@@ -240,26 +240,8 @@ public class Client  {
 		cipherText = cipher.doFinal(s.getBytes());
 				   
 		return cipherText;
+	
 	}
-	
-	public PublicKey sendCertificate(String nome) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
-		
-		FileInputStream is = new FileInputStream(nome);
-		
-	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-	    
-	    keystore.load(is, "SEC".toCharArray());
-	    
-	    String alias = nome;
-	
-	    X509Certificate cert = (X509Certificate) keystore.getCertificate(nome);
-	    
-	    PublicKey pubK = cert.getPublicKey();
-	    
-	    return pubK;
-	    
-	}
-	
 	
 	
 	/*
@@ -283,7 +265,7 @@ public class Client  {
 	    		
 	        	String idConnection = "0.0.0.0" + ":" + socket.getPort();
 	    			        	
-	        	PublicKey prK = readPublicKeyFromFile(idConnection + "public.key");
+	        	PublicKey prK = readPublicKeyFromFile(idConnection);
 	        		            
 	        	cipher = Cipher.getInstance("RSA");
 	        		            	        	
@@ -291,14 +273,12 @@ public class Client  {
 	             
 	        	byte[] msg = cipher.doFinal(encryptedMessage);
 	        	
-	        	String x = new String(msg);
-	        		             
 	        	return new String(msg);
 	             
 	        }
 	        
-	        catch(Exception e)
-	         {
+	        catch(Exception e) {
+	        	
 	        	e.getCause();
 	        
 	        	e.printStackTrace();
@@ -346,32 +326,22 @@ public class Client  {
 		* 
 		* 
 	*/
-	PublicKey readPublicKeyFromFile(String fileName) throws IOException {
+	PublicKey readPublicKeyFromFile(String id) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
 		
-	 	FileInputStream in = new FileInputStream(fileName);
-	  	ObjectInputStream oin =  new ObjectInputStream(new BufferedInputStream(in));
-
-	  	try {
-	  	  
-	  		BigInteger m = (BigInteger) oin.readObject();
-	  	  
-	  		BigInteger e = (BigInteger) oin.readObject();
-	  	  
-	  		RSAPublicKeySpec keySpecifications = new RSAPublicKeySpec(m, e);
-	  	  
-	  		KeyFactory kF = KeyFactory.getInstance("RSA");
-	  	  
-	  		PublicKey pubK = kF.generatePublic(keySpecifications);
-	  	  
-	  		return pubK;
-	  	
-	  	} catch (Exception e) {
-	  		  throw new RuntimeException("Some error in reading public key", e);
-	  	
-	  	} finally {
-	 	   oin.close();
-	 	}
+		java.io.FileInputStream is = new java.io.FileInputStream("publicKeys");
 		
+	    KeyStore keystore = KeyStore.getInstance("JKS");
+	    
+	    keystore.load(is, "SECpass".toCharArray());
+	    
+	    String alias = id;
+	    
+	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
+	    
+	    PublicKey pubKey = cert.getPublicKey();
+	    
+	    return pubKey;
+	    
 	}
 	 
 		
@@ -487,8 +457,6 @@ public class Client  {
 		
 		//get the certificate
 		X509Certificate cert = rsa.createCert(clientConnection,pubKey,privKey);
-		
-		client.sendCertificate(clientConnection);
 		
 		//sequence number is initialized
 		seqNumber = 0;
