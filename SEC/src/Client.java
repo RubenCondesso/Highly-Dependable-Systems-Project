@@ -704,10 +704,10 @@ public class Client  {
 					//check if the message's time has expired 
 					if (diff < expireTime ){
 						
-						// check if the message has the right sequence number
-						if (seqNumber == Integer.parseInt(seqDecryt)){
+						// check if the message has a right sequence number
+						if (seqNumber <= Integer.parseInt(seqDecryt)){
 							
-							seqNumber ++ ;
+							seqNumber = Integer.parseInt(seqDecryt) + 1 ;
 							
 							// print the message
 							System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);

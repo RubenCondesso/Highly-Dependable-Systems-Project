@@ -42,6 +42,9 @@ public class Notary {
 	// the port number to listen for connection
 	private int port;
 	
+	//max number of clients on the application
+	private int maxNumberClients;
+	
 	// to check if server is running
 	private boolean serverRunning;
 	
@@ -80,6 +83,8 @@ public class Notary {
 		
 		serverRunning = true;
 		
+		maxNumberClients = 6;
+		
 		//create socket server and wait for connection requests 
 		try 
 		{
@@ -106,8 +111,8 @@ public class Notary {
 			{
 				display("Server waiting for Clients on port " + port + ".");
 				
-				// accept connection if requested from client
-				if (clientsList.size() < 6)  {
+				// accept connection if requested from client if the number of client its bellow max number
+				if (clientsList.size() < maxNumberClients)  {
 					Socket socket = serverSocket.accept();
 					// break if server stopped
 					if(!serverRunning)
@@ -547,10 +552,10 @@ public class Notary {
 					//check if the message's time has expired 
 					if (diff < expireTime ){
 						
-						//Verify if message has the right sequence number
-						if (seqNumber == Integer.parseInt(seqDecryt)){
+						//Verify if message has a right sequence number
+						if (seqNumber <= Integer.parseInt(seqDecryt)){
 							
-							seqNumber ++;
+							seqNumber = Integer.parseInt(seqDecryt) + 1;
 							
 							// different actions based on type message
 							switch(message.getType()) {
