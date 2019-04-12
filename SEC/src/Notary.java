@@ -586,6 +586,7 @@ public class Notary {
 									
 									broadcast(notif + clientID + " has joined the application " + notif);
 								} 
+								
 								catch (IOException | GeneralSecurityException e1) {
 									
 									e1.printStackTrace();

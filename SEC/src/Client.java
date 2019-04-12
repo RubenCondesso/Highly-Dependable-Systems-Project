@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 //import java.math.BigInteger;
 import javax.crypto.*;
@@ -48,6 +49,9 @@ public class Client  {
 	
 	//time to expire message
 	private static int expireTime;
+	
+	// max number of trys to connect to server
+	private static int threshold;
 	
 	//real timestamp
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
@@ -94,48 +98,70 @@ public class Client  {
 	
 	public boolean start() {
 		
-		// try to connect to the server
-		try {
-			
-			socket = new Socket(server, port);
-									
-			clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
-			
-			//30 seconds to message expire
-			expireTime = 10;
-						
-		} 
+		int retryCounter = 0;
 		
-		// exception handler if it failed
-		catch(Exception ec) {
-			
-			display("Error connectiong to server:" + ec);
-			return false;
-		}
+		threshold = 100;
 		
-		String msg = "Connection accepted " + socket.getInetAddress() + ":" + socket.getPort();
+		socket = null; 
 		
-		display(msg);
-	
-		/* Creating both Data Stream */
-		try {
+		while (retryCounter < threshold) {
 			
-			sInput  = new ObjectInputStream(socket.getInputStream());
+			retryCounter ++ ;
 			
-			sOutput = new ObjectOutputStream(socket.getOutputStream());
-		}
-		
-		catch (IOException eIO) {
+			// try to connect to the server
+			try {			
+				
+				socket = new Socket(server, port);
+										
+				clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
+				
+				//10 seconds to message expire
+				expireTime = 10;
+				
+				String msg = "Connection accepted " + socket.getInetAddress() + ":" + socket.getPort();
+				
+				display(msg);
 			
-			display("Exception creating new Input/output Streams: " + eIO);
-			return false;
-		}
-
-		// creates the Thread to listen from the server 
-		new ListenFromServer().start();	
+				/* Creating both Data Stream */
+				try {
 					
-		// success we inform the caller that it worked
-		return true;
+					sInput  = new ObjectInputStream(socket.getInputStream());
+					
+					sOutput = new ObjectOutputStream(socket.getOutputStream());
+				}
+				
+				catch (IOException eIO) {
+					
+					display("Exception creating new Input/output Streams: " + eIO);
+					return false;
+				}
+
+				// creates the Thread to listen from the server 
+				new ListenFromServer().start();	
+							
+				// success we inform the caller that it worked
+				return true;
+							
+			} 
+			
+			// exception handler if it failed
+			catch(Exception ec) {
+				
+				display("Error connectiong to server:" + ec);
+				//return false;
+			}	
+		}
+		
+		if (socket == null){
+			
+			display("Failed to connect to server");
+			
+			return false;
+		}
+		
+		return false;
+		
+		
 	}
 
 		
@@ -674,6 +700,8 @@ public class Client  {
 
 		public void run() {
 			
+			int retryCounter = 0;
+			
 			while(true) {
 				
 				try {
@@ -732,10 +760,11 @@ public class Client  {
 				}
 				
 				catch(IOException e) {
-					
-					display(notif + "Server has closed the connection: " + e + notif);
+									
+					display(notif + "Can´t connect to server. The connection was closed " + e + notif);
 					
 					break;
+						
 				}
 				
 				catch(ClassNotFoundException e2) {
