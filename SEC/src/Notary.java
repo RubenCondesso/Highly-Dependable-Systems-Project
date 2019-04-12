@@ -93,7 +93,6 @@ public class Notary {
 			ServerSocket serverSocket = new ServerSocket(port);
 						
 			notaryConnection = serverSocket.getInetAddress().getHostAddress().toString().replace("/","") + ":" + serverSocket.getLocalPort();
-			System.out.println(notaryConnection);
 			
 			RSA rsa = new RSA();
 			
@@ -111,11 +110,14 @@ public class Notary {
 			// infinite loop to wait for connections ( till server is active )
 			while(serverRunning) 
 			{
-				display("Server waiting for Clients on port " + port + ".");
-				
+		
 				// accept connection if requested from client if the number of client its bellow max number
 				if (clientsList.size() < maxNumberClients)  {
+					
+					display("Server waiting for Clients on port " + port + ".");
+					
 					Socket socket = serverSocket.accept();
+					
 					// break if server stopped
 					if(!serverRunning)
 						
@@ -135,6 +137,13 @@ public class Notary {
 			
 			// try to stop the server
 			try {
+				
+				FileOutputStream fos = new FileOutputStream("clientsGoodsList.ser");
+				ObjectOutputStream oos = new ObjectOutputStream(fos);
+				oos.writeObject(clientsGoodsList);
+				oos.close();
+				fos.close();
+				
 				serverSocket.close();
 				
 				for(int p = 0; p < clientsList.size(); ++p) {
@@ -160,6 +169,7 @@ public class Notary {
 		catch (IOException e) {
 			
             String msg = sdf.format(new Date()) + " Exception on new ServerSocket: " + e + "\n";
+            
 			display(msg);
 		}
 	}
@@ -167,7 +177,7 @@ public class Notary {
 	
 	// to stop the server
 	protected void stop() {
-		
+				
 		serverRunning = false;
 		
 		try {
@@ -1051,7 +1061,7 @@ public class Notary {
 		
 		// close everything
 		private void close() {
-					
+								
 			try {
 				if(sOutput != null) sOutput.close();
 			}

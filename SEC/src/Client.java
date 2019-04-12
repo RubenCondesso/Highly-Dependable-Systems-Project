@@ -109,8 +109,8 @@ public class Client  {
 			retryCounter ++ ;
 			
 			// try to connect to the server
-			try {			
-				
+			try {	
+								
 				socket = new Socket(server, port);
 										
 				clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
@@ -148,6 +148,8 @@ public class Client  {
 			catch(Exception ec) {
 				
 				display("Error connectiong to server:" + ec);
+				
+				display("I will keep trying.");
 			}	
 		}
 		
@@ -727,11 +729,11 @@ public class Client  {
 				}
 				
 				catch(IOException e) {
-									
-					display(notif + "Can´t connect to server. The connection was closed " + e + notif);
+					
+					display(notif + "Can´t connect to server. Connection was closed. " + e + notif);
 					
 					break;
-						
+										
 				}
 				
 				catch(ClassNotFoundException e2) {
