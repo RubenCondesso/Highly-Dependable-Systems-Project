@@ -148,7 +148,6 @@ public class Client  {
 			catch(Exception ec) {
 				
 				display("Error connectiong to server:" + ec);
-				//return false;
 			}	
 		}
 		
