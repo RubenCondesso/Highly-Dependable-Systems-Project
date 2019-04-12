@@ -107,6 +107,27 @@ public class Notary {
 			//10 seconds to message expire
 			expireTime = 10;
 			
+			
+			try {
+				
+				//check if there is any old information about the application
+				File file = new File ("clientsGoodsList.ser");
+				
+				if (file.exists()){
+					
+					FileInputStream fileIn = new FileInputStream(file);
+					ObjectInputStream in = new ObjectInputStream(fileIn);
+					
+					//if there is, recover that information to the server's list
+					clientsGoodsList  = (HashMap) in.readObject();
+				}
+		        
+			} catch (ClassNotFoundException e1) {
+				
+				e1.printStackTrace();
+			}
+			
+			
 			// infinite loop to wait for connections ( till server is active )
 			while(serverRunning) 
 			{
@@ -137,13 +158,7 @@ public class Notary {
 			
 			// try to stop the server
 			try {
-				
-				FileOutputStream fos = new FileOutputStream("clientsGoodsList.ser");
-				ObjectOutputStream oos = new ObjectOutputStream(fos);
-				oos.writeObject(clientsGoodsList);
-				oos.close();
-				fos.close();
-				
+								
 				serverSocket.close();
 				
 				for(int p = 0; p < clientsList.size(); ++p) {
@@ -513,7 +528,6 @@ public class Notary {
 			// to loop until LOGOUT
 			boolean serverRunning = true;
 			
-			//int i = 0;
 			
 			while(serverRunning) {
 				
@@ -614,9 +628,33 @@ public class Notary {
 								    
 								    //Add the new client and his goods to the all goods List
 								    clientsGoodsList.put(key, value);
-								    
+								    									
 								}
-															
+								
+								FileOutputStream fos;
+									
+							    try {
+							    	
+							    	System.out.println("Cheguei aqui");
+								
+							    	fos = new FileOutputStream("clientsGoodsList.ser");
+									ObjectOutputStream oos = new ObjectOutputStream(fos);
+									
+									//save information of the application to file, in case of server crash
+									oos.writeObject(clientsGoodsList);
+									
+									oos.close();
+									fos.close();
+								    
+								} catch (FileNotFoundException e) {
+									
+									e.printStackTrace();
+									
+								} catch (IOException e) {
+									
+									e.printStackTrace();
+								}
+														
 								break;
 							
 							case MessageHandler.LOGOUT:
@@ -941,6 +979,26 @@ public class Notary {
 																	//inform the buyer about the outcome of the transfer
 														    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "Yes. The transfer was successful. ");		
 																	
+														    																			
+																    try {
+																	
+																    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
+																		ObjectOutputStream oos = new ObjectOutputStream(fos1);
+																		
+																		//save information of the application to file, in case of server crash
+																		oos.writeObject(clientsGoodsList);
+																		
+																		oos.close();
+																		fos1.close();
+																	    
+																	} catch (FileNotFoundException e) {
+																		
+																		e.printStackTrace();
+																		
+																	} catch (IOException e) {
+																		
+																		e.printStackTrace();
+																	}
 																}
 																
 																else {
