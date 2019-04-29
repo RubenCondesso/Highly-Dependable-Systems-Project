@@ -34,8 +34,8 @@ public class Notary {
 	// HashMap to keep the goods to sell of each Client
 	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
 	
-	// HashMap to keep the goods interest of each Buyer
-	private HashMap<String, String> buyersInterest = new HashMap<String,String>();
+	// HashMap to keep the ports that will be used by each client in theirs privates connections
+	private HashMap<String, Integer> portsList = new HashMap<String, Integer>();
 				
 	// to display time
 	private SimpleDateFormat sdf;
@@ -84,6 +84,7 @@ public class Notary {
 		
 		serverRunning = true;
 		
+		// example of max number of clients (to have a control on number of clients)
 		maxNumberClients = 6;
 		
 		//create socket server and wait for connection requests 
@@ -149,7 +150,7 @@ public class Notary {
 					
 					//add this client to arraylist
 					clientsList.add(t);
-									
+														
 					t.start();
 				}
 								
@@ -503,6 +504,7 @@ public class Notary {
 		
 		
 		//check if buyer has shown interest in some good
+		/*
 		public boolean checkBuyerInterest(String id, String good){
 			
 			for (Map.Entry<String, String> item : buyersInterest.entrySet()){
@@ -519,6 +521,7 @@ public class Notary {
 			
 			return false;
 		}
+		*/
 		
 		
 		
@@ -606,11 +609,20 @@ public class Notary {
 										
 								Object nomeCliente = temporaryList.keySet().toArray()[0];
 																					
-								clientID= temporaryList.get(nomeCliente);
+								clientID = temporaryList.get(nomeCliente);
 																										
 								try {
 									
-									broadcast(notif + clientID + " has joined the application " + notif);
+									//broadcast(notif + clientID + " has joined the application " + notif);
+									
+									int tempPort = 1500 + clientsList.size();
+									
+									String nomeTemp = clientID;
+									
+									portsList.put(nomeTemp, tempPort);
+																		
+									updateClientsPortsTables(portsList.toString());
+									
 								} 
 								
 								catch (IOException | GeneralSecurityException e1) {
@@ -635,8 +647,7 @@ public class Notary {
 									
 							    try {
 							    	
-							    	System.out.println("Cheguei aqui");
-								
+							    									
 							    	fos = new FileOutputStream("clientsGoodsList.ser");
 									ObjectOutputStream oos = new ObjectOutputStream(fos);
 									
@@ -798,126 +809,28 @@ public class Notary {
 								}
 								
 								break;
-							
-							case MessageHandler.BUYGOOD:
-								
-								int n=0;
-								
-								boolean cli;
-								
-								String[] w = (mensagemDecryt.toString()).split(" ",3);
-														
-								if (w.length == 2){
-									
-									try {
-										
-										// Check if the good exists on the application 
-										if(checkGood(w[1]) == true){
-											
-											for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-												
-												String key = item.getKey();
-											    String value = item.getValue();
-											    
-											    //Verify if the requested good is for sale 
-											    if (value.equals(w[1])){
-											    	
-											    	n=1;
-											    	
-											    	//The Buyer is the Seller
-											    	if (key.equals(clientID)){
-											    		
-											    		display("A client can't buy his own goods. ");
-											    													    		
-											    		sendErrorMsg(clientID, "No. You can't buy your own goods." + "\n");
-														
-											    	}
-													
-													else{
-														
-														cli = broadcast(clientID + ": " + mensagemDecryt);
-														
-														if(cli == false) {
-															
-															String msg = notif + "Sorry. No such user exists." + notif;
-															
-															writeMsg(msg);
-														}
-														
-														else{
-															
-															//Add the Buyer and his interest on this good to buyersInterest list
-															buyersInterest.put(clientID, value);
-															
-															//The operation was successful
-															writeMsg("Yes" +"\n");
-														}
-														
-													}
-											    }						
-											}
-											
-											//This good is not for sale   
-											if(n == 0){
-												
-												display("The good is not for sale. ");
-																								
-												sendErrorMsg(clientID, "No. The good is not for sale." + "\n");
-												
-											}
-											
-										}
-										
-										else {
-											
-											display("The good does not exist on the application. ");
-																		
-											sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
-							
-										}
-																	
-									} catch (IOException | GeneralSecurityException  e) {
-									
-										e.printStackTrace();
-									}
-									
-								}
-								
-								
-								else {
-									
-									try {
-										
-										sendErrorMsg(clientID, "Wrong Input. " + "\n");
-										
-									} catch (IOException | GeneralSecurityException e) {
-									
-										e.printStackTrace();
-									}	
-									
-								}
-								
-								break;
 								
 							
 							case MessageHandler.TRANSFERGOOD:
 								
 								String[] m = (mensagemDecryt.toString()).split(" ", 3);
+								
+								System.out.println("Mensagem recebida: " + mensagemDecryt);
 														
 								if (m.length == 2){
+																																				
+									//The BuyerID
+									String buyer = m[0];
 									
 									//The goodID that will be transfer
-									String good = m[0];
-																											
-									//The BuyerID
-									String buyer = m[1];
+									String good = m[1];
 									
 									int b = 0;
 									
 									int k = 0;
 									
 									// Check if the good exists on the application 
-									if(checkGood(m[0]) == true){
+									if(checkGood(good) == true){
 									
 										for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
 											
@@ -949,6 +862,7 @@ public class Notary {
 										    		for(int y=clientsList.size(); --y>=0;){
 														
 														ClientThread ct1=clientsList.get(y);
+														
 														String check=ct1.getClientID();
 														
 														//Verify if the Buyer is a client on the list
@@ -957,56 +871,43 @@ public class Notary {
 															k = 1;
 															
 															try {
+																																
+																clientsGoodsList.put(value, buyer);
 																
-																System.out.println("lista de interesses: " + buyersInterest);
+																clientsGoodsList.remove(value, key);
 																
-																//check if the buyer has shown interest before in that good
-																if(checkBuyerInterest(buyer, good) == true){
+																clientsGoodsToSell.remove(key, value);	
+																
+																// buyersInterest.remove(buyer, good);
+																
+																display("The transfer was successful. ");
+																
+																//inform the seller about the outcome of the transfer
+													    		Boolean response1 = broadcast(clientID + ": " + "Yes. The transfer was successful. ");
+													    													
+																//inform the buyer about the outcome of the transfer
+													    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "Yes. The transfer was successful. ");		
+																
+													    																			
+															    try {
+																
+															    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
+																	ObjectOutputStream oos = new ObjectOutputStream(fos1);
 																	
-																	clientsGoodsList.put(value, buyer);
+																	//save information of the application to file, in case of server crash
+																	oos.writeObject(clientsGoodsList);
 																	
-																	clientsGoodsList.remove(value, key);
+																	oos.close();
+																	fos1.close();
+																    
+																} catch (FileNotFoundException e) {
 																	
-																	clientsGoodsToSell.remove(key, value);	
+																	e.printStackTrace();
 																	
-																	buyersInterest.remove(buyer, good);
+																} catch (IOException e) {
 																	
-																	display("The transfer was successful. ");
-																	
-																	//inform the seller about the outcome of the transfer
-														    		Boolean response1 = broadcast(clientID + ": " + "Yes. The transfer was successful. ");
-														    													
-																	//inform the buyer about the outcome of the transfer
-														    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "Yes. The transfer was successful. ");		
-																	
-														    																			
-																    try {
-																	
-																    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
-																		ObjectOutputStream oos = new ObjectOutputStream(fos1);
-																		
-																		//save information of the application to file, in case of server crash
-																		oos.writeObject(clientsGoodsList);
-																		
-																		oos.close();
-																		fos1.close();
-																	    
-																	} catch (FileNotFoundException e) {
-																		
-																		e.printStackTrace();
-																		
-																	} catch (IOException e) {
-																		
-																		e.printStackTrace();
-																	}
+																	e.printStackTrace();
 																}
-																
-																else {
-																																		
-																	sendErrorMsg(clientID, "No. The buyer has not shown interest in that good before. " + "\n");
-																	
-																	
-																}							    		
 																
 															} catch (IOException | GeneralSecurityException  e) {
 																
@@ -1164,7 +1065,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection));
+				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), clientsList.size());
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1173,6 +1074,93 @@ public class Notary {
 				seqNumber ++;
 				
 				socket.setSoTimeout(5000*100);  //set timeout to 500 seconds
+			}
+			
+			// if an error occurs, do not abort just inform the user
+			catch(IOException e) {
+				
+				display(notif + "Error sending message to " + clientID + notif);
+				
+				display(e.toString());
+				
+			} 
+			
+			return true;
+		}
+		
+		// send the portsList list to a client
+		private boolean updateMsg(String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
+			
+			// if Client is still connected send the message to it
+			if(!socket.isConnected()) {
+						
+				close();
+				return false;
+			}
+			
+			// write the message to the stream
+			try {
+												
+				msgEncrypt = null;
+				
+				//get the current sequence number
+				String tempSeq = Integer.toString(seqNumber);
+				
+				//current time
+				LocalDateTime timeCurrent = LocalDateTime.now();
+				
+				//format that is gone be used
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+				
+				//convert to string
+				String time = timeCurrent.format(formatter);
+				
+				//secure the current message
+				msgEncrypt = new MessageHandler(6, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), clientsList.size());
+								
+				//send the final message
+				sOutput.writeObject(msgEncrypt);
+				
+				//increase the sequence number
+				seqNumber ++;
+				
+				socket.setSoTimeout(5000*100);  //set timeout to 500 seconds
+			}
+			
+			// if an error occurs, do not abort just inform the user
+			catch(IOException e) {
+				
+				display(notif + "Error sending message to " + clientID + notif);
+				
+				display(e.toString());
+				
+			} 
+			
+			return true;
+		}
+		
+		
+		// write a String to the Client output stream
+		private boolean updateClientsPortsTables(String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
+			
+			// if Client is still connected send the message to it
+			if(!socket.isConnected()) {
+						
+				close();
+				return false;
+			}
+			
+			try {
+			
+				for(int y=clientsList.size(); --y>=0;){
+					
+					ClientThread ct1=clientsList.get(y);
+					
+					// send the updated table of portsList to all clients
+					ct1.updateMsg(msg);
+					
+				}
+												
 			}
 			
 			// if an error occurs, do not abort just inform the user
@@ -1205,9 +1193,9 @@ public class Notary {
 		
 		try
 	        {	
-			
+						
 				PublicKey pK = readPublicKeyFromFile(id);
-			
+						
 	            ServerDecryptCipher = Cipher.getInstance("RSA");
 	           	            
 	            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, pK);

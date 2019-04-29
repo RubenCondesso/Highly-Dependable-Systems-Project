@@ -3,23 +3,17 @@ import java.net.*;
 import java.io.*;
 import java.util.*;
 
-import java.math.BigInteger;
-import java.net.Socket;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.security.spec.RSAPrivateKeySpec;
-import java.security.spec.RSAPublicKeySpec;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Scanner;
-import java.util.concurrent.TimeUnit;
 
-//import java.math.BigInteger;
 import javax.crypto.*;
-//import javax.crypto.spec.IvParameterSpec;
+
+// import Notary.ClientThread;
 
 
 //The Client that can be run as a console
@@ -29,20 +23,32 @@ public class Client  {
 	private String notif = " *** ";
 
 	// for I/O
-	private ObjectInputStream sInput;		// to read from the socket
-	private static ObjectOutputStream sOutput;		// to write on the socket
-	private Socket socket;					
+	private ObjectInputStream sInput;		// to read from the socket connected to Notary
+	private static ObjectOutputStream sOutput;		// to write on the socket connected to Notary
 	
-	private String server, clientID;	
+	// socket to talk to server
+	private Socket socket;
+	
+	private int count;
+		
+	
+	private String server, clientID;
+	
+	// port of server's socket
 	private int port;
-	
+		
 	// id of the connection of the client socket
 	private static String clientConnection;
 	
 	private Cipher cipher;
 		
 	MessageHandler msgEncrypt;
+	
+	// message received from server
 	MessageHandler message;
+	
+	// message received from other clients
+	MessageHandler messageClient;
 	
 	//Sequence Number -> Guarantee freshness of messages
 	private static int seqNumber;
@@ -58,6 +64,23 @@ public class Client  {
 			
 	//List of goods of the client
 	private static HashMap<String, String> goodsList = new HashMap<String, String>();
+	
+	
+	// socket to talk to other clients
+	private ServerSocket clientSocket;
+	
+	// port to client to client connection
+	private static int clientPort;
+	
+	// to check if client is running
+	private boolean clientRunning;
+	
+	// message to other clients
+	MessageHandler msgToClient;
+	
+	// HashMap to keep the ports that will be used by each client in theirs privates connections
+	private static HashMap<String, Integer> portsList = new HashMap<String, Integer>();
+	
 	
 	
 	public String getClientID() {
@@ -104,6 +127,8 @@ public class Client  {
 		
 		socket = null; 
 		
+		clientRunning = true;
+		
 		while (retryCounter < threshold) {
 			
 			retryCounter ++ ;
@@ -112,7 +137,9 @@ public class Client  {
 			try {	
 								
 				socket = new Socket(server, port);
-										
+				
+				count = 0;
+																		
 				clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
 				
 				//10 seconds to message expire
@@ -138,7 +165,7 @@ public class Client  {
 
 				// creates the Thread to listen from the server 
 				new ListenFromServer().start();	
-							
+											
 				// success we inform the caller that it worked
 				return true;
 							
@@ -186,12 +213,6 @@ public class Client  {
 	}
 		
 	
-	//Ask the server to verify the transfer of goods between clients
-	private static String transferGood (String message) {
-				
-		return message;
-	}
-	
 	
 	/*
 	 * To send a message to the console
@@ -202,195 +223,28 @@ public class Client  {
 		
 	}
 	
-		
-	/*
-	 * To send a message to the Notary
-	 */
-	void sendMessage(MessageHandler msg) throws UnrecoverableKeyException, KeyStoreException, CertificateException {
-		
-		try {
-									
-			msgEncrypt = null;
-									
-			//Client will send a normal message encrypted				
-			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData()),clientConnection), encryptMessage(new String(msg.getSeq()),clientConnection),  encryptMessage(new String(msg.getLocalDate()),clientConnection));
-					
-			// send the final message
-			sOutput.writeObject(msgEncrypt);
-			
-			//convert to string
-			String count =  new String(msg.getSeq());
-				
-			//increase the sequence number
-			seqNumber = Integer.parseInt(count) + 1; 
-						
-			socket.setSoTimeout(5000*100);  //set timeout to 500 seconds
-										
-		}
-		
-		catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-						| InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
-					
-			e.printStackTrace();						
-		}
-		
-		catch(IOException e) {
-			display("Exception writing to server: " + e);
-		}
-	}
-	
-	
-	/*
-		* //===========  Encrypted message using the private key of the Client =================
-		*	 
-		* encryptMessage method
-		* 
-		* 		Takes the message string as input and encrypts the message.
-		* 
-		* 
-	*/
-	public byte[] encryptMessage(String s, String nome) throws NoSuchAlgorithmException, NoSuchPaddingException, 
-						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
-										BadPaddingException, IOException, UnrecoverableKeyException, KeyStoreException, CertificateException{
-	
-				
-		PrivateKey pK = getPrivateKey(nome);
-		
-		cipher = null;
-	
-		byte[] cipherText = null;
-	
-		cipher = Cipher.getInstance("RSA");
-			
-		cipher.init(Cipher.ENCRYPT_MODE, pK);
-	
-		cipherText = cipher.doFinal(s.getBytes());
-				   
-		return cipherText;
-	
-	}
-	
-	
-	/*
-	 * //=========== Decipher/decrypt the encrypted message using the public key of Notary =================
-	 * 
-	 * decryptMessage method.
-	 * 
-	 * 		Deciphers the encrypted message received from the Notary using his public Key.
-	 * 		
-	 * 		Takes byte array of the encrypted message as input.
-	 *  
-	*/
-	
-	public String decryptMessage(byte[] encryptedMessage) {
-		
-	        cipher = null;
-	        
-	        try {
-	        	
-	    		//String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + socket.getPort();
-	    		
-	        	String idConnection = "0.0.0.0" + ":" + socket.getPort();
-	    			        	
-	        	PublicKey prK = readPublicKeyFromFile(idConnection);
-	        		            
-	        	cipher = Cipher.getInstance("RSA");
-	        		            	        	
-	        	cipher.init(Cipher.DECRYPT_MODE, prK);
-	             
-	        	byte[] msg = cipher.doFinal(encryptedMessage);
-	        	
-	        	return new String(msg);
-	             
-	        }
-	        
-	        catch(Exception e) {
-	        	
-	        	e.getCause();
-	        
-	        	e.printStackTrace();
-	        	
-	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
-	          }
-	        
-	        return null;
-	 }
-	
-	
-	/*
-		* //===========  Get the private key of the Client of the KeyStore =================
-		*	 
-		* getPrivateKey method
-		* 
-		* 		Takes the variable 'clientConnection' as input and retrieves the private key of the Client.
-		* 		The private key of the client is saved in a JavaKey store.
-		* 
-		* 
-	*/
-	public PrivateKey getPrivateKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
-		
-		FileInputStream is = new FileInputStream(nome);
-		
-	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-	    
-	    keystore.load(is, "SEC".toCharArray());
-	    
-	    String alias = nome;
-	
-	    Key key = keystore.getKey(alias, "SEC".toCharArray());
-	    
-	    return (PrivateKey) key;
-	 
-	}
-	
-
-	/*
-		* //===========  Get the public key of the Client of the serialize file =================
-		*	 
-		* readPublicKeyFromFile method
-		* 
-		* 		Takes the filename as input and retrieves the public key of the Client of the serialize file.
-		* 
-		* 
-	*/
-	PublicKey readPublicKeyFromFile(String id) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
-		
-		java.io.FileInputStream is = new java.io.FileInputStream("publicKeys");
-		
-	    KeyStore keystore = KeyStore.getInstance("JKS");
-	    
-	    keystore.load(is, "SECpass".toCharArray());
-	    
-	    String alias = id;
-	    
-	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
-	    
-	    PublicKey pubKey = cert.getPublicKey();
-	    
-	    return pubKey;
-	    
-	}
-	 
-		
 	
 	/*
 	 * When something goes wrong
 	 * Close the Input/Output streams and disconnect
 	*/
 	private void disconnect() {
+		
 		try { 
 			if(sInput != null) sInput.close();
 		}
 		catch(Exception e) {}
+		
 		try {
 			if(sOutput != null) sOutput.close();
 		}
 		catch(Exception e) {}
-        try{
+        
+		try{
 			if(socket != null) socket.close();
 		}
 		catch(Exception e) {}
-			
+            			
 	}
 	
 	
@@ -405,7 +259,7 @@ public class Client  {
 	 * If the portNumber is not specified 1500 is used
 	 * If the serverAddress is not specified "localHost" is used
 	 * If the clientID is not specified "Anonymous" is used
-	 */
+	*/
 	public static void main(String[] args) throws IOException, GeneralSecurityException  {
 		
 		// default values if not entered
@@ -475,7 +329,7 @@ public class Client  {
 		
 		//generate private and public keys
 		KeyPair keys = rsa.createKeyPairs(clientConnection);
-		
+						
 		//get the client's public key from the file
 		PublicKey pubKey = rsa.checkPublicKey(clientConnection, keys);
 		
@@ -506,12 +360,6 @@ public class Client  {
 				
 				if (msg.equalsIgnoreCase("ENTER")){
 					
-					System.out.println("\nHello.! Welcome to HDS Notary Application");
-					System.out.println("1. Type 'SELL' to inform the Notary that you want to sell some good");
-					System.out.println("2. Type 'STATEGOOD' to see if some specific good is available for sell");
-					System.out.println("3. Type 'BUYGOOD' to buy a good");
-					System.out.println("4. Type 'TRANSFERGOOD'' to inform the Notary of some transaction");
-					System.out.println("5. Type 'LOGOUT' to logoff from application");
 					
 					setGoodsClient(clientID + "Maca", clientID);
 					setGoodsClient(clientID + "Banana", clientID);
@@ -530,7 +378,7 @@ public class Client  {
 			        String time = dateTime.format(formatter);
 			        	
 			        //send message
-					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
+					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort));
 					
 					i=1;
 					
@@ -560,7 +408,7 @@ public class Client  {
 					
 					byte[] tempBytes = temp.getBytes();
 													
-					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time.getBytes()));
+					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort));
 					
 					break;
 				}
@@ -580,7 +428,7 @@ public class Client  {
 					
 			        String time = dateTime.format(formatter);
 									
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes()));	
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort));	
 							
 				}
 				
@@ -599,48 +447,47 @@ public class Client  {
 					
 			        String time = dateTime.format(formatter);
 																				
-					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes()));	
+					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort));	
 																							
 				}
 				
 				// message to the server to buy some good
 				else if(msg.equalsIgnoreCase("BUYGOOD")) {
 					
-					System.out.println("Write @Product Owner <space>" + " the goodID that you want to buy from him: ");
+					System.out.println("Write Product Owner <space>" + " the goodID that you want to buy from him: ");
 					
 					String msgGoodToBuy = scan.nextLine();
 					
 					msgGoodToBuy = buyGood(msgGoodToBuy);
 					
-					byte[] tempBytes = msgGoodToBuy.getBytes();
-					
 					LocalDateTime dateTime = LocalDateTime.now();
 					
 			        String time = dateTime.format(formatter);
-										
-					client.sendMessage(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes()));
-																										
+												        
+			        String[] w = msgGoodToBuy.split(" ",3);
+			     		
+			        // the good that will be sold
+			        String tempGood = w[1];
+			        
+			        // final msg that will be sent
+			        String temp = clientID + " " + tempGood;
+			        
+			        byte[] tempBytes = temp.getBytes();
+			        			        			        
+			        for (Map.Entry<String, Integer> item : portsList.entrySet()) {
+			        			
+			        	// get the port of the socket of the seller
+			        	if (item.getKey().equals(w[0])){
+			        		
+			        		// port of the seller
+			        		Integer tempPort = item.getValue();
+			        					        					        					        		
+			        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort));
+			        	}
+			        	
+			        }																					
 				}
-				
-				// message to the server to transfer some good
-				else if(msg.equalsIgnoreCase("TRANSFERGOOD")) {
-					
-					System.out.println("Write the goodID that will be transfer <space>" + " buyer ID: ");
-
-					String msgTransfer = scan.nextLine();
-									
-					msgTransfer= transferGood(msgTransfer);
-					
-					byte[] tempBytes = msgTransfer.getBytes();
-					
-					LocalDateTime dateTime = LocalDateTime.now();
-					
-			        String time = dateTime.format(formatter);
-										
-					client.sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, tempBytes, tempSeq.getBytes(), time.getBytes()));	
-																													
-				}
-				
+								
 				// regular text message
 				else {
 					
@@ -669,7 +516,7 @@ public class Client  {
 
 		public void run() {
 			
-			int retryCounter = 0;
+			int contador = 0;
 			
 			while(true) {
 				
@@ -678,38 +525,32 @@ public class Client  {
 					// read the message form the input datastream
 					message = (MessageHandler) sInput.readObject();
 					
-					//get the message
-					String msgDecrypt = decryptMessage(message.getData());
-					
-					//Get the sequence number of the message received
-					String seqDecryt = decryptMessage(message.getSeq());
-					
-					//Get the time of the message received
-					String timeReceived = decryptMessage(message.getLocalDate());
-					
-					
-					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-					
-					//convert to LocalDateTime type
-					LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
-					
-					//current time
-					LocalDateTime tAtual = LocalDateTime.now();
-									
-					long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
-										
-					//check if the message's time has expired 
-					if (diff < expireTime ){
+					// its the first message received from server
+					if( contador == 0){
+						
+						//Get the sequence number of the message received
+						String seqDecryt = decryptMessage(message.getSeq());
 						
 						// check if the message has a right sequence number
 						if (seqNumber <= Integer.parseInt(seqDecryt)){
 							
+							contador ++;
+							
+							// port number to Client opens socket to talk to other clients
+							clientPort = port + message.getPort();
+														
 							seqNumber = Integer.parseInt(seqDecryt) + 1 ;
 							
-							// print the message
-							System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
+							// creates the Thread to listen from the clients
+							new ListenFromClients().start();	
 							
-							System.out.print("> ");
+							count ++;
+							
+							System.out.println("\nHello.! Welcome to HDS Notary Application");
+							System.out.println("1. Type 'SELL' to inform the Notary that you want to sell some good");
+							System.out.println("2. Type 'STATEGOOD' to see if some specific good is available for sell");
+							System.out.println("3. Type 'BUYGOOD' to buy a good");
+							System.out.println("4. Type 'LOGOUT' to logoff from application");
 							
 						}
 						
@@ -718,12 +559,105 @@ public class Client  {
 							display("The Message hasn't the right sequence number. Won't accept it");
 						}
 						
+				
 					}
 					
-					//the message has expired
-					else{
+					// update the client's portsList list
+					if (message.getType() == 6){
+												
+						//get the message
+						String msgDecrypt = decryptMessage(message.getData());
 						
-						display("The Message has expired. Won't accept it");
+						//Convert the message received to a HashMap
+						msgDecrypt = msgDecrypt.substring(1, msgDecrypt.length()-1); //remove curly brackets
+														
+						String[] keyValuePairs = msgDecrypt.split(",");              //split the string to create key-value pairs
+								
+						Map <String,String> map = new HashMap<>();               
+	
+						for(String pair : keyValuePairs)                        //iterate over the pairs
+						{
+							String[] entry = pair.split("=");                   //split the pairs to get key and value 
+						    map.put(entry[0].trim(), entry[1].trim());          //add them to the hashmap and trim whitespaces
+						}
+															
+						// read all clientIDs and theirs private ports numbers
+						HashMap<String, String> temporaryList = (HashMap<String, String>) map;
+								
+						Object nomeCliente = temporaryList.keySet().toArray()[0];
+																			
+						String nomeTemp = temporaryList.get(nomeCliente);
+						
+						// reset the portsList
+						portsList.clear();
+						
+						//update the portsList
+						for (Map.Entry<String, String> item : temporaryList.entrySet()) {
+							
+							//the good of the client
+							String key = item.getKey();
+							
+							//Client name
+						    String value = item.getValue();
+						    
+						    //Add the client name and his private port connection
+						    portsList.put(key, Integer.parseInt(value));
+						    									
+						}
+						
+					}
+					
+					else {
+						
+						//get the message
+						String msgDecrypt = decryptMessage(message.getData());
+						
+						//Get the sequence number of the message received
+						String seqDecryt = decryptMessage(message.getSeq());
+						
+						//Get the time of the message received
+						String timeReceived = decryptMessage(message.getLocalDate());
+						
+						
+						DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+						
+						//convert to LocalDateTime type
+						LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
+						
+						//current time
+						LocalDateTime tAtual = LocalDateTime.now();
+										
+						long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
+											
+						//check if the message's time has expired 
+						if (diff < expireTime ){
+							
+							// check if the message has a right sequence number
+							if (seqNumber <= Integer.parseInt(seqDecryt)){
+								
+								seqNumber = Integer.parseInt(seqDecryt) + 1 ;
+								
+								// print the message
+								System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
+								
+								System.out.print("> ");
+								
+							}
+							
+							else {
+								
+								display("The Message hasn't the right sequence number. Won't accept it");
+							}
+							
+						
+						}
+						
+						//the message has expired
+						else{
+							
+							display("The Message has expired. Won't accept it");
+						}
+					
 					}
 													
 				}
@@ -740,6 +674,434 @@ public class Client  {
 				}
 			}
 		}
+	}
+	
+	/*
+	 * a class that waits for the message from the other clients
+	*/
+	class ListenFromClients extends Thread {
+
+		public void run() {		
+			
+			try {
+				
+				// the socket used by the server
+				clientSocket = new ServerSocket(clientPort);
+				
+				// infinite loop to wait for connections ( till this client is active )
+				while(clientRunning) 
+				{
+			
+					display("Client waiting for other clients on port " + clientPort + ".");			
+					
+					Socket clientToClientSocket = clientSocket.accept();
+					
+					// break if client stopped
+					if(!clientRunning)
+						
+						break;
+					
+					// if client is connected, create its thread
+					ClientThread t = new ClientThread(clientToClientSocket);
+														
+					t.start();
+										
+				}
+				
+				// try to stop the client
+				try {
+									
+					clientSocket.close();
+				
+				}
+				catch(Exception e) {
+					
+					display("Exception in closing. " + e);
+				}
+				
+			} catch (IOException e) {
+				
+				e.printStackTrace();
+				
+			} catch (NoSuchAlgorithmException e) {
+				
+				e.printStackTrace();
+				
+			} catch (GeneralSecurityException e) {
+				
+				e.printStackTrace();
+			}
+			
+		}
+	}
+	
+	
+	
+	// One instance of this thread will run for each client connected to this client
+	class ClientThread extends Thread {
+		
+		// the socket to get messages from client
+		Socket clientToClientSocket ;
+		
+		ObjectInputStream sInputClient;
+		ObjectOutputStream sOutputClient;
+		
+			
+		// the clientID of the Client
+		String clientID;
+		
+		// message object to receive message and its type
+		MessageHandler msghandler;
+		
+	
+		
+		// Constructor
+		ClientThread(Socket clientToClientSocket) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+						
+			this.clientToClientSocket = clientToClientSocket;
+					
+			//Creating both Data Stream
+			System.out.println("Thread trying to create Object Input/Output Streams");
+			
+			try
+			{
+				
+				sOutputClient = new ObjectOutputStream(clientToClientSocket.getOutputStream());
+				sInputClient  = new ObjectInputStream(clientToClientSocket.getInputStream());								
+				
+			}
+			catch (IOException e) {
+				
+				display("Exception creating new Input/output Streams: " + e);
+				
+				return;
+			}
+			
+		}
+		
+			
+		// infinite loop to read and forward message
+		public void run() {
+			
+			// to loop until LOGOUT
+			boolean clientRunning = true;
+			
+			
+			while(clientRunning) {
+								
+				// it will be always a buygood from other client
+				try {
+						
+					messageClient = (MessageHandler) sInputClient.readObject(); 
+														
+					String temp0= clientToClientSocket.getLocalAddress().getHostAddress().toString() + ":" + messageClient.getPort();
+					
+					//get the message
+					String msgDecryptOfClient = decryptMessageOfClients(messageClient.getData(), temp0);
+										
+					LocalDateTime dateTime = LocalDateTime.now();
+					
+					DateTimeFormatter formatter1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+					
+			        String time = dateTime.format(formatter1);
+			        
+			        String tempSeq = Integer.toString(seqNumber);
+										
+					try {
+												
+						sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes(), messageClient.getPort()));
+						
+					} catch (UnrecoverableKeyException | KeyStoreException | CertificateException e) {
+						
+						e.printStackTrace();
+					}
+										
+				}
+				
+				catch (IOException e) {
+					
+					break;				
+				}
+				
+				catch(ClassNotFoundException e2) {
+					break;
+				}
+						
+				close();
+			}
+		
+		}
+		
+		// close everything
+		private void close() {
+								
+			try {
+				if(sOutputClient != null) sOutputClient.close();
+			}
+			catch(Exception e) {}
+			
+			try {
+				if(sInputClient != null) sInputClient.close();
+			}
+			catch(Exception e) {};
+			
+			try {
+				
+				if(clientToClientSocket != null) clientToClientSocket.close();
+			}
+			catch (Exception e) {}
+		}
+		
+	}
+	
+	
+	
+	
+	/*
+	 * To send a message to the Notary
+	*/
+	void sendMessage(MessageHandler msg) throws UnrecoverableKeyException, KeyStoreException, CertificateException {
+		
+		try {
+									
+			msgEncrypt = null;
+									
+			//Client will send a normal message encrypted				
+			msgEncrypt = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData()), clientConnection), encryptMessage(new String(msg.getSeq()),clientConnection),  encryptMessage(new String(msg.getLocalDate()),clientConnection), clientPort);
+					
+			// send the final message
+			sOutput.writeObject(msgEncrypt);
+			
+			//convert to string
+			String count =  new String(msg.getSeq());
+				
+			//increase the sequence number
+			seqNumber = Integer.parseInt(count) + 1; 
+						
+			socket.setSoTimeout(5000*100);  //set timeout to 500 seconds
+										
+		}
+		
+		catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+						| InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+					
+			e.printStackTrace();						
+		}
+		
+		catch(IOException e) {
+			display("Exception writing to server: " + e);
+		}
+	}
+	
+	
+	/*
+	 * To send a message to other Clients: only used in goods transfers
+	*/
+	void sendMessageToClients(MessageHandler msg) throws UnrecoverableKeyException, KeyStoreException, CertificateException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
+		
+		// temporary socket to send message to other Client
+		Socket socketTemp;
+		
+		ObjectOutputStream sOutputTemp;			
+		
+		int port = msg.getPort();
+		
+		String clientAddress = "localhost";
+		
+		try {
+			
+			// connect to seller's socket
+			socketTemp = new Socket (clientAddress, port);	
+			
+			sOutputTemp = new ObjectOutputStream(socketTemp.getOutputStream());
+		
+			msgToClient = new MessageHandler(msg.getType(), encryptMessage(new String(msg.getData()), clientConnection), encryptMessage(new String(msg.getSeq()),clientConnection),  encryptMessage(new String(msg.getLocalDate()),clientConnection), socket.getLocalPort());
+					
+			sOutputTemp.writeObject(msgToClient);
+			
+			socketTemp.setSoTimeout(5000*100);  //set timeout to 500 seconds
+			
+			sOutputTemp.close();
+										
+		}
+		
+				
+		catch(IOException e) {
+			
+			display("Exception writing to other client: " + e);
+		}
+	}
+	
+	
+	
+	/*
+		* //===========  Encrypted message using the private key of the Client =================
+		*	 
+		* encryptMessage method
+		* 
+		* 		Takes the message string as input and encrypts the message.
+		* 
+		* 
+	*/
+	public byte[] encryptMessage(String s, String nome) throws NoSuchAlgorithmException, NoSuchPaddingException, 
+						InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, 
+										BadPaddingException, IOException, UnrecoverableKeyException, KeyStoreException, CertificateException{
+		
+		PrivateKey prK = getPrivateKey(nome);
+		
+		cipher = null;
+	
+		byte[] cipherText = null;
+	
+		cipher = Cipher.getInstance("RSA");
+			
+		cipher.init(Cipher.ENCRYPT_MODE, prK);
+	
+		cipherText = cipher.doFinal(s.getBytes());
+							   
+		return cipherText;
+	
+	}
+	
+	
+	/*
+	 * //=========== Decipher/decrypt the encrypted message using the public key of Notary =================
+	 * 
+	 * decryptMessage method.
+	 * 
+	 * 		Deciphers the encrypted message received from the Notary using his public Key.
+	 * 		
+	 * 		Takes byte array of the encrypted message as input.
+	 *  
+	*/
+	public String decryptMessage (byte[] encryptedMessage) {
+		
+	        cipher = null;
+	        
+	        try {
+	        	
+	    		//String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + socket.getPort();
+	    		
+	        	String idConnection = "0.0.0.0" + ":" + socket.getPort();
+	    			        	
+	        	PublicKey pK = readPublicKeyFromFile(idConnection);
+	        		            
+	        	cipher = Cipher.getInstance("RSA");
+	        		            	        	
+	        	cipher.init(Cipher.DECRYPT_MODE, pK);
+	             
+	        	byte[] msg = cipher.doFinal(encryptedMessage);
+	        		        	
+	        	return new String(msg);
+	             
+	        }
+	        
+	        catch(Exception e) {
+	        	
+	        	e.getCause();
+	        
+	        	e.printStackTrace();
+	        	
+	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
+	          }
+	        
+	        return null;
+	 }
+	
+	
+	/*
+	 * //=========== Decipher the encrypted message using the public key of the Client that sent the message =================
+	 * 
+	 * decryptMessage method.
+	 * 
+	 * 		Deciphers the encrypted message received from the Client using his public Key.
+	 * 		
+	 * 		Takes byte array of the encrypted message as input.
+	 *  
+	*/
+	public String decryptMessageOfClients (byte[] encryptedMessage, String id) {
+		
+	        cipher = null;
+	        
+	        try {
+	    			        		    			        	
+	        	PublicKey pK = readPublicKeyFromFile(id);
+	        		        		        		        		            
+	        	cipher = Cipher.getInstance("RSA");
+	        		            	        	
+	        	cipher.init(Cipher.DECRYPT_MODE, pK);
+	        		             
+	        	byte[] msg = cipher.doFinal(encryptedMessage);
+	        		        	
+	        	return new String(msg);
+	             
+	        }
+	        
+	        catch(Exception e) {
+	        	
+	        	e.getCause();
+	        
+	        	e.printStackTrace();
+	        	
+	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
+	          }
+	        
+	        return null;
+	 }
+	
+	
+	/*
+		* //===========  Get the private key of the Client of the KeyStore =================
+		*	 
+		* getPrivateKey method
+		* 
+		* 		Takes the variable 'clientConnection' as input and retrieves the private key of the Client.
+		* 		The private key of the client is saved in a JavaKey store.
+		* 
+		* 
+	*/
+	public PrivateKey getPrivateKey(String nome) throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException, CertificateException, IOException {
+		
+		FileInputStream is = new FileInputStream(nome);
+		
+	    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+	    
+	    keystore.load(is, "SEC".toCharArray());
+	    
+	    String alias = nome;
+	
+	    Key key = keystore.getKey(alias, "SEC".toCharArray());
+	    
+	    return (PrivateKey) key;
+	 
+	}
+	
+
+	/*
+		* //===========  Get the public key of the Client of the serialize file =================
+		*	 
+		* readPublicKeyFromFile method
+		* 
+		* 		Takes the filename as input and retrieves the public key of the Client of the serialize file.
+		* 
+		* 
+	*/
+	PublicKey readPublicKeyFromFile(String id) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
+		
+		java.io.FileInputStream is = new java.io.FileInputStream("publicKeys");
+		
+	    KeyStore keystore = KeyStore.getInstance("JKS");
+	    
+	    keystore.load(is, "SECpass".toCharArray());
+	    
+	    String alias = id;
+	    
+	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
+	    
+	    PublicKey pubKey = cert.getPublicKey();
+	    
+	    return pubKey;
+	    
 	}
 	
 }

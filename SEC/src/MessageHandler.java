@@ -15,9 +15,11 @@ public class MessageHandler implements Serializable {
 
 	// The different types of message sent by the Client
 		
-	static final int ENTER = 0, SELL = 1, STATEGOOD = 2, BUYGOOD = 3, TRANSFERGOOD = 4, LOGOUT = 5;
+	static final int ENTER = 0, SELL = 1, STATEGOOD = 2, BUYGOOD = 3, TRANSFERGOOD = 4, LOGOUT = 5, UPDATE = 6;
 	
 	private int type;
+	
+	private int portClient;
 	
 	private static final long serialVersionUID = 1L;
 	
@@ -31,7 +33,7 @@ public class MessageHandler implements Serializable {
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time) {
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int portClient) {
 		
 		//Type of message
 		this.type = type;
@@ -46,6 +48,8 @@ public class MessageHandler implements Serializable {
 		this.time = time;
 		
 		this.cert = cert;
+		
+		this.portClient = portClient;
 	}
 
 
@@ -68,6 +72,11 @@ public class MessageHandler implements Serializable {
 		
 		return time;
 	}
+	 
+	 int getPort() {
+			
+			return portClient;
+		}
 
 	
 }
