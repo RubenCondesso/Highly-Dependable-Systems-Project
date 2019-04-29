@@ -649,13 +649,18 @@ public class Notary {
 							    	
 							    									
 							    	fos = new FileOutputStream("clientsGoodsList.ser");
-									ObjectOutputStream oos = new ObjectOutputStream(fos);
+							    	
+							    	synchronized(fos){
+							    		
+							    		ObjectOutputStream oos = new ObjectOutputStream(fos);
+										
+										//save information of the application to file, in case of server crash
+										oos.writeObject(clientsGoodsList);
+										
+										oos.close();
+										fos.close();
+							    	}
 									
-									//save information of the application to file, in case of server crash
-									oos.writeObject(clientsGoodsList);
-									
-									oos.close();
-									fos.close();
 								    
 								} catch (FileNotFoundException e) {
 									
@@ -665,7 +670,7 @@ public class Notary {
 									
 									e.printStackTrace();
 								}
-														
+							    														
 								break;
 							
 							case MessageHandler.LOGOUT:
