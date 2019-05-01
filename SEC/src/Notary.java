@@ -16,30 +16,26 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import javax.crypto.*;
-//import javax.crypto.spec.IvParameterSpec;
-//import javax.crypto.spec.SecretKeySpec;
+
 
 // the server that can be run as a console
 public class Notary {
 
-	// a unique ID for each connection
-	private static int connectionID;
-	
-	// an ArrayList to keep the list of the Client
-	private ArrayList<ClientThread> clientsList;
-	
-	// HashMap to keep the goods of each Client
-	private HashMap<String, String> clientsGoodsList = new HashMap<String,String>();
-	
-	// HashMap to keep the goods to sell of each Client
-	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
-	
-	// HashMap to keep the ports that will be used by each client in theirs privates connections
-	private HashMap<String, Integer> portsList = new HashMap<String, Integer>();
-				
+	/*
+	 *  
+	 *  All variables and objets used in the server side
+	 *  
+	*/	
+
 	// to display time
 	private SimpleDateFormat sdf;
 	
+	//time to expire message
+	private static int expireTime;
+
+	// a unique ID for each connection
+	private static int connectionID;
+				
 	// the port number to listen for connection
 	private int port;
 	
@@ -60,12 +56,32 @@ public class Notary {
 	private Cipher ServerEncryptCipher;
 	
 	MessageHandler msgEncrypt;
-		
+	
+	// message received from the clients
 	private MessageHandler message;
 	
+
+
+	/*
+	 *  
+	 *  All hashmaps and lists used in the server side
+	 *  
+	*/
 	
-	//time to expire message
-	private static int expireTime;
+	// an ArrayList to keep the list of the Client
+	private ArrayList<ClientThread> clientsList;
+	
+	// HashMap to keep the goods of each Client
+	private HashMap<String, String> clientsGoodsList = new HashMap<String,String>();
+	
+	// HashMap to keep the goods to sell of each Client
+	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
+	
+	// HashMap to keep the ports that will be used by each client in theirs privates connections
+	private HashMap<String, Integer> portsList = new HashMap<String, Integer>();
+
+
+
 				
 	//constructor that receive the port to listen to for connection as parameter
 	public Notary(int port) {
@@ -500,30 +516,7 @@ public class Notary {
 			}
 			
 			return false;
-		}
-		
-		
-		//check if buyer has shown interest in some good
-		/*
-		public boolean checkBuyerInterest(String id, String good){
-			
-			for (Map.Entry<String, String> item : buyersInterest.entrySet()){
-				
-				String key = item.getKey();
-				String value = item.getValue();
-		    
-				// Check if the Buyer has shown interest in that good
-				if (key.equals(id) && value.equals(good)){
-					
-					return true;
-				}
-			}
-			
-			return false;
-		}
-		*/
-		
-		
+		}		
 		
 		// infinite loop to read and forward message
 		public void run() {
@@ -553,9 +546,11 @@ public class Notary {
 				
 				// Server will decrypt the messages from the Client
 				if(message.getData() != null){
+
+					Integer realPort = socket.getPort() - message.getNumber();
 					
 					//number of the connection
-					String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + socket.getPort();
+					String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + realPort;
 												
 					//message received 
 					String mensagemDecryt = decryptMessage(message.getData(), idConnection);
@@ -1070,7 +1065,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), clientsList.size());
+				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), port, clientsList.size());
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1121,7 +1116,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(6, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), clientsList.size());
+				msgEncrypt = new MessageHandler(6, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), port, clientsList.size());
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);

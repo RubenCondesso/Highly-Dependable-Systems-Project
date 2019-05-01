@@ -19,7 +19,9 @@ public class MessageHandler implements Serializable {
 	
 	private int type;
 	
-	private int portClient;
+	private int port;
+
+	private int number;
 	
 	private static final long serialVersionUID = 1L;
 	
@@ -33,7 +35,7 @@ public class MessageHandler implements Serializable {
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int portClient) {
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number) {
 		
 		//Type of message
 		this.type = type;
@@ -47,9 +49,15 @@ public class MessageHandler implements Serializable {
 		//time now
 		this.time = time;
 		
+		// the certificate
 		this.cert = cert;
 		
-		this.portClient = portClient;
+		// port used in connection
+		this.port = port;
+
+		// number used to do some calculations (in port's numbers)
+		this.number= number;
+
 	}
 
 
@@ -75,8 +83,13 @@ public class MessageHandler implements Serializable {
 	 
 	 int getPort() {
 			
-			return portClient;
-		}
+		return port;
+	}
+
+	 int getNumber(){
+
+	 	return number;
+	 }
 
 	
 }
