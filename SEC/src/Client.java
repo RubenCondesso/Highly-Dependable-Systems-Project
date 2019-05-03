@@ -86,7 +86,18 @@ public class Client  {
 	
 	// to check if client is running
 	private boolean clientRunning;
-		
+
+	// total number of Servers in system
+	private static int numberOfServers;
+
+	//max number of faults that system tolerate
+	private static int maxFaults;
+
+	// number of faults counted 
+	private static int countFaults;
+
+	
+
 	
 	/*
 	 *  
@@ -106,6 +117,9 @@ public class Client  {
 	// list of all output's objects to receive messages to all servers
 	private static ArrayList<ObjectOutputStream> objOutputList = new ArrayList<ObjectOutputStream>();
 	
+
+	//To store all responses received by the servers -> allresponses: (message, number of votes of that message)
+	private static Map<String, Integer>  serverResponses = new HashMap<String, Integer>(); 
 
 
 	
@@ -161,6 +175,10 @@ public class Client  {
 		
 		ObjectOutputStream sOutputToClient;
 
+		numberOfServers = 3;
+
+		// The system follows the following rule: N - f > (N + f)/2; N=Number of Servers, f=Number of faults tolerated
+		maxFaults = numberOfServers / 3;
 
 		while (retryCounter < threshold) {
 			
@@ -169,7 +187,7 @@ public class Client  {
 			// try to connect to the server
 			try {	
 
-				for (int l = 1; l < 3; l ++){
+				for (int l = 1; l < (numberOfServers + 1); l ++){
 
 					socket = null;
 
@@ -187,10 +205,7 @@ public class Client  {
 						// its the unique id that is gone be used to create the RSA keys and Certificate
 						clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
 
-						firstPort = socket.getLocalPort();
-
-						System.out.println("O id que foi usado para as chaves: " + clientConnection);
-				
+						firstPort = socket.getLocalPort();				
 					}												
 					
 					//10 seconds to message expire
@@ -404,6 +419,9 @@ public class Client  {
 		
 		//sequence number is initialized
 		seqNumber = 0;
+
+		// number of faults counted is initialized
+		countFaults = 0;
 		
 		//format that is gone be used
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -716,12 +734,18 @@ public class Client  {
 										seqNumber = Integer.parseInt(seqDecryt) + 1 ;
 
 									}
-									
-									// print the message
-									System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
-									
-									System.out.print("> ");
-									
+
+									// process message received from the server
+									String result = processResponses(message.getType(), msgDecrypt);
+
+									// we have a final result
+									if (result != null) {
+
+										display(result);
+
+										System.out.print("> ");
+
+									}
 								}
 								
 								else {
@@ -1036,6 +1060,393 @@ public class Client  {
 			
 			display("Exception writing to other client: " + e);
 		}
+	}
+
+
+
+	/*
+		* //===========  Process messages received by all servers =================
+		*	 
+		* processResponses method
+		* 
+		* 		Takes the server's port, the message's type, the message string, and the timestamp as input and implements a specific couting vote.
+		*
+		*		Returns the final response that will be shown to the client 
+		* 
+	*/
+	public String processResponses(int typeMessage, String messageReceived){
+
+			String finalResponse = null;
+
+			// its a response of a SELL message
+			if (typeMessage == 1){
+
+				// Possible message received by the server: the good is now for sale
+				if(messageReceived.equals("Yes")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+				// Other possible message received by the server -> the operation of selling the good was not successful
+				else if(messageReceived.equals("No. Your are not the owner of that good.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+				// Other possible message received by the server -> the operation of selling the good was not successful
+				else if(messageReceived.equals("No. The good was not found in the clients goods list.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+
+			}
+
+			// its a response of a STATEGOOD message
+			else if (typeMessage == 2){
+
+				// possible message received by the server -> the good is not for sale
+				if(messageReceived.equals("No. The good is not for sale.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+				// Other possible message received by the server -> the good does not exist on the application
+				else if(messageReceived.equals("No. The good does not exist on the application.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+
+				// the good is now for sale
+				else {
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+
+			}
+
+			// its a response of a TRANSFERGOOD message
+			else if (typeMessage == 4){
+
+				// the transfer was successfull
+				if(messageReceived.equals("Yes. The transfer was successful.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+				// Other possible message received by the server -> the operation of transfer the good was not successful
+				else if(messageReceived.equals("No. You can't transfer your own good to yourself.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+				// Other possible message received by the server -> the buyer ID does not exist
+				else if(messageReceived.equals("No. The Buyer is not on the application.")){
+
+					// the list is empty
+					if (serverResponses.size() == 0){
+
+						serverResponses.put(messageReceived, 1);
+
+					}
+
+					else {
+
+						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+			        			
+				        	// check if this message was already in list
+				        	if (item.getKey().equals(messageReceived)){
+				        		
+				        		// if so, increase the number of votes
+				        		serverResponses.put(messageReceived, item.getValue() + 1);
+				        					        					        					        		
+				        	}
+
+				        	// the list is not empty -> there was at least one fault
+				        	else {
+
+				        		countFaults ++;
+
+				        		// if not, add it to the list with one vote
+				        		serverResponses.put(messageReceived, 1);
+
+				        	}
+			        	
+			        	}
+
+					}
+				}
+
+			}
+
+			// message's type its incorrect
+			else {
+
+				display("The Message has a invalid type. ");
+			}
+
+
+			// check if we have already a final response
+			for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+
+
+				if(item.getValue() >= (socketsList.size() - maxFaults)){
+
+					finalResponse = item.getKey();
+
+					serverResponses.clear();
+
+					countFaults = 0;
+				}
+
+			}
+
+		return finalResponse;		
+
 	}
 	
 	

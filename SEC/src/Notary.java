@@ -231,7 +231,7 @@ public class Notary {
 	
 	
 	// to broadcast a message to all Clients
-	private synchronized boolean broadcast(String message) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	private synchronized boolean broadcast(Integer typeMessage, String message) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 		
 		// add timestamp to the message
 		String time = sdf.format(new Date());
@@ -267,7 +267,7 @@ public class Notary {
 				if(check.equals(tocheck)) {
 					
 					// try to write to the Client if it fails remove it from the list
-					if(!ct1.writeMsg(messageLf)) {
+					if(!ct1.writeMsg(typeMessage, messageLf)) {
 						
 						clientsList.remove(y);
 						display("Disconnected Client " + ct1.clientID + " removed from list.");
@@ -304,7 +304,7 @@ public class Notary {
 				
 				
 				// try to write to the Client if it fails remove it from the list
-				if(!ct.writeMsg(messageLf)) {
+				if(!ct.writeMsg(typeMessage, messageLf)) {
 					
 					clientsList.remove(x);
 					
@@ -337,13 +337,13 @@ public class Notary {
 				break;
 			}
 		}
-		broadcast(notif + disconnectedClient + " has left the application. " + notif);
+		broadcast(5, notif + disconnectedClient + " has left the application. " + notif);
 	}
 	
 	
 	
 	// to error message to a specific client
-	private synchronized boolean sendErrorMsg(String clientName, String errorMsg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	private synchronized boolean sendErrorMsg(Integer typeMessage, String clientName, String errorMsg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 			
 		for(int t = clientsList.size(); --t >= 0;) {
 				
@@ -351,7 +351,7 @@ public class Notary {
 			
 			if(clientName.equals(cT1.getClientID())){
 				
-				cT1.writeMsg(errorMsg);
+				cT1.writeMsg(typeMessage, errorMsg);
 			}			
 		}
 			
@@ -693,7 +693,7 @@ public class Notary {
 								    	
 								    	try {
 								    		
-											writeMsg("Yes" + "\n");
+											writeMsg(message.getType(), "Yes");
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
@@ -708,7 +708,7 @@ public class Notary {
 										
 										try {
 																						
-											sendErrorMsg(clientID, "No. Your are not the owner of that good." + "\n");
+											sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good.");
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
@@ -724,7 +724,7 @@ public class Notary {
 									
 									try {
 																										
-										sendErrorMsg(clientID, "No. The good was not found in the clients goods list." + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list.");
 										
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -762,7 +762,7 @@ public class Notary {
 									    	
 									    	try {
 									    		
-												writeMsg("Good: " + value + ", " + "Owner: " + key + "\n");
+												writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key);
 												
 											} catch (IOException | GeneralSecurityException  e) {
 											
@@ -781,7 +781,7 @@ public class Notary {
 									
 									try {
 																										
-										sendErrorMsg(clientID, "No. The good is not for sale. " + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. The good is not for sale.");
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -798,7 +798,7 @@ public class Notary {
 									
 									try {
 																									
-										sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application.");
 																		
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -849,7 +849,7 @@ public class Notary {
 										    		
 													try {
 														
-														sendErrorMsg(clientID, "No. You can't transfer your own good to yourself. " + "\n");		
+														sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself.");		
 														
 													} catch (IOException | GeneralSecurityException e) {
 														
@@ -883,10 +883,10 @@ public class Notary {
 																display("The transfer was successful. ");
 																
 																//inform the seller about the outcome of the transfer
-													    		Boolean response1 = broadcast(clientID + ": " + "Yes. The transfer was successful. ");
+													    		Boolean response1 = broadcast(message.getType(), clientID + ": " + "Yes. The transfer was successful.");
 													    													
 																//inform the buyer about the outcome of the transfer
-													    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "Yes. The transfer was successful. ");		
+													    		Boolean response2 = broadcast(message.getType(), ct1.getClientID() + ": " + "Yes. The transfer was successful.");		
 																
 													    																			
 															    try {
@@ -923,7 +923,7 @@ public class Notary {
 										    			
 										    			try {
 															
-															sendErrorMsg(clientID, "No. The Buyer is not on the application. " + "\n");
+															sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application.");
 																															
 														} catch (IOException | GeneralSecurityException e) {
 															
@@ -943,7 +943,7 @@ public class Notary {
 											
 											try {
 																								
-												sendErrorMsg(clientID, "No. The good is not for sale." + "\n");
+												sendErrorMsg(message.getType(), clientID, "No. The good is not for sale.");
 																					
 											} catch (IOException | GeneralSecurityException e) {
 											
@@ -960,7 +960,7 @@ public class Notary {
 										
 										try {
 																						
-											sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
+											sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application. ");
 											
 										} catch (IOException | GeneralSecurityException e) {
 										
@@ -974,7 +974,7 @@ public class Notary {
 									
 									try {
 										
-										sendErrorMsg(clientID, "No. Wrong Input. " + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. Wrong Input. ");
 										
 									} catch (IOException | GeneralSecurityException e) {
 									
@@ -1038,7 +1038,7 @@ public class Notary {
 		
 
 		// write a String to the Client output stream
-		private boolean writeMsg(String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
+		private boolean writeMsg(Integer typeMessage, String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1065,7 +1065,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), port, clientsList.size());
+				msgEncrypt = new MessageHandler(typeMessage, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), port, clientsList.size());
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
