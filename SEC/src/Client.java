@@ -1541,8 +1541,6 @@ public class Client  {
 	        cipher = null;
 	        
 	        try {
-
-	        	System.out.println("Id do seller recebido: " + id);
 	    			        		    			        	
 	        	PublicKey pK = readPublicKeyFromFile(id);
 	        		        		        		        		            

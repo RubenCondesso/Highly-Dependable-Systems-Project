@@ -76,6 +76,9 @@ public class Notary {
 	
 	// HashMap to keep the goods to sell of each Client
 	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
+
+	// save the transactions's history
+	private Map<LocalDateTime, String[]> transactionsHistory = new HashMap<LocalDateTime, String[]>();    	
 	
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
 	private HashMap<String, Integer> portsList = new HashMap<String, Integer>();
@@ -814,9 +817,7 @@ public class Notary {
 							case MessageHandler.TRANSFERGOOD:
 								
 								String[] m = (mensagemDecryt.toString()).split(" ", 3);
-								
-								System.out.println("Mensagem recebida: " + mensagemDecryt);
-														
+																						
 								if (m.length == 2){
 																																				
 									//The BuyerID
@@ -877,28 +878,51 @@ public class Notary {
 																clientsGoodsList.remove(value, key);
 																
 																clientsGoodsToSell.remove(key, value);	
-																
-																// buyersInterest.remove(buyer, good);
-																
+																																
 																display("The transfer was successful. ");
 																
 																//inform the seller about the outcome of the transfer
-													    		Boolean response1 = broadcast(message.getType(), clientID + ": " + "Yes. The transfer was successful.");
+													    		writeMsg(4, "Yes. The transfer was successful.");
 													    													
 																//inform the buyer about the outcome of the transfer
-													    		Boolean response2 = broadcast(message.getType(), ct1.getClientID() + ": " + "Yes. The transfer was successful.");		
+													    		ct1.writeMsg(4, "Yes. The transfer was successful.");		
 																
 													    																			
 															    try {
 																
 															    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
-																	ObjectOutputStream oos = new ObjectOutputStream(fos1);
+
+															    	synchronized(fos1){
+
+																		ObjectOutputStream oos = new ObjectOutputStream(fos1);
+																		
+																		//save information of the application to file, in case of server crash
+																		oos.writeObject(clientsGoodsList);
+																		
+																		oos.close();
+																		fos1.close();
+																	}
+
+																	// save the information of the transaction
+																	String[] transactionInformation = new String[]{ct1.getClientID(), clientID, good}; 
+
 																	
-																	//save information of the application to file, in case of server crash
-																	oos.writeObject(clientsGoodsList);
-																	
-																	oos.close();
-																	fos1.close();
+																	// save this information in the 
+																	transactionsHistory.put(tAtual, transactionInformation);
+
+																	FileOutputStream fos2 = new FileOutputStream("transactionsHistory.ser");
+
+															    	synchronized(fos2){
+
+																		ObjectOutputStream oos1 = new ObjectOutputStream(fos2);
+																		
+																		//save information of the application to file, in case of server crash
+																		oos1.writeObject(transactionsHistory);
+																		
+																		oos1.close();
+																		fos2.close();
+																	}
+
 																    
 																} catch (FileNotFoundException e) {
 																	
