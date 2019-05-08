@@ -16,6 +16,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import javax.crypto.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 // the server that can be run as a console
@@ -72,7 +73,7 @@ public class Notary {
 	private ArrayList<ClientThread> clientsList;
 	
 	// HashMap to keep the goods of each Client
-	private HashMap<String, String> clientsGoodsList = new HashMap<String,String>();
+	private ConcurrentHashMap <String, String> clientsGoodsList = new ConcurrentHashMap <String,String>();
 	
 	// HashMap to keep the goods to sell of each Client
 	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
@@ -139,7 +140,20 @@ public class Notary {
 					ObjectInputStream in = new ObjectInputStream(fileIn);
 					
 					//if there is, recover that information to the server's list
-					clientsGoodsList  = (HashMap) in.readObject();
+					ConcurrentHashMap <String, String> clientsGoodsListTemp  = (ConcurrentHashMap) in.readObject();
+
+					for (Map.Entry<String, String> item : clientsGoodsListTemp.entrySet()){
+
+						//the good of the client
+						String key = item.getKey();
+									
+						//Client name
+					    String value = item.getValue();
+					    
+					    //Add the new client and his goods to the all goods List
+					    clientsGoodsList.put(key, value);
+					}
+
 				}
 		        
 			} catch (ClassNotFoundException e1) {
@@ -680,23 +694,27 @@ public class Notary {
 								break;
 												
 							case MessageHandler.SELL:
+
+								// the good that the client wants to sell + the wts
+								String[] msgReceivedSell = mensagemDecryt.split(" ");
 							
-								display("The client " + clientID + " want to sell the following good: " + mensagemDecryt);
+								display("The client " + clientID + " want to sell the following good: " + msgReceivedSell[0]);
 								
 								// Check if the good exists on the application 
-								if(checkGood(mensagemDecryt) == true){
+								if(checkGood(msgReceivedSell[0]) == true){
 									
 									//check if the clientID is the owner of the good, and the good exists on the application
-									if (checkGoodToSell(clientID, mensagemDecryt) == true){
+									if (checkGoodToSell(clientID, msgReceivedSell[0]) == true){
 										
 										//put the good on the list of products to sell
-								    	clientsGoodsToSell.put(clientID, mensagemDecryt);
+								    	clientsGoodsToSell.put(clientID, msgReceivedSell[0]);
 								    	
 								    	display("The good is now for sale.");
 								    	
 								    	try {
 								    		
-											writeMsg(message.getType(), "Yes");
+								    		//All Conditions passed -> Return a ACK to the Client + the wts received
+											writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1]);
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
@@ -711,7 +729,7 @@ public class Notary {
 										
 										try {
 																						
-											sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good.");
+											sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1]);
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
@@ -727,7 +745,7 @@ public class Notary {
 									
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list.");
+										sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1]);
 										
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -739,15 +757,18 @@ public class Notary {
 													
 						
 							case MessageHandler.STATEGOOD:
-								
-								display("The client " + clientID + " want to check the state of the following good: " + mensagemDecryt);
-								
+																
 								int s= 0;
 								
 								int l = 0;
+
+								// the good that the client wants to know its state + the id of the operation
+								String[] msgReceivedState = mensagemDecryt.split(" ");
+
+								display("The client " + clientID + " want to check the state of the following good: " + msgReceivedState[0]);
 								
 								// Check if the good exists on the application 
-								if(checkGood(mensagemDecryt) == true){
+								if(checkGood(msgReceivedState[0]) == true){
 									
 									l = 1;
 									
@@ -757,7 +778,7 @@ public class Notary {
 									    String value = item.getValue();
 									    							    									    
 									    //Verify if the requested good is on sale 
-									    if (value.equals(mensagemDecryt) && (s != 1)){
+									    if (value.equals(msgReceivedState[0]) && (s != 1)){
 									    	
 									    	s=1;
 									    	
@@ -765,16 +786,14 @@ public class Notary {
 									    	
 									    	try {
 									    		
-												writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key);
+												writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1]);
 												
 											} catch (IOException | GeneralSecurityException  e) {
 											
 												e.printStackTrace();
-											}
-									    
+											}   
 									    }						
-									}
-									
+									}	
 								}
 							
 								//This good is not for sale   
@@ -784,14 +803,12 @@ public class Notary {
 									
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "No. The good is not for sale.");
+										sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1]);
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
-									
 										e.printStackTrace();
 									}
-									
 								}
 								
 								//The good does not exist on the application.
@@ -801,14 +818,13 @@ public class Notary {
 									
 									try {
 																									
-										sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application.");
+										sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1]);
 																		
 									} catch (IOException | GeneralSecurityException  e) {
 										
 									
 										e.printStackTrace();
 									}
-									
 								}
 								
 								break;
@@ -886,8 +902,7 @@ public class Notary {
 													    													
 																//inform the buyer about the outcome of the transfer
 													    		ct1.writeMsg(4, "Yes. The transfer was successful.");		
-																
-													    																			
+																																
 															    try {
 																
 															    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
@@ -1199,6 +1214,21 @@ public class Notary {
 			return true;
 		}
 	}
+
+
+
+
+
+	// =============================================================================================================================================================================
+
+	/*
+		*	 
+		* 		Bellow are standing the methods related to the RSA keys (private and public keys) and to the decryption and encryption of messages exchange on the application 
+		* 
+	*/
+
+	// =============================================================================================================================================================================
+
 	
 	
 	/*

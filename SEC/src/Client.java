@@ -12,8 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 import javax.crypto.*;
-
-// import Notary.ClientThread;
+import java.util.concurrent.TimeUnit;
 
 
 //The Client that can be run as a console
@@ -21,7 +20,7 @@ public class Client  {
 
 	/*
 	 *  
-	 *  All variables and objets used in the client side
+	 *  All variables and objets used in the client side to implement the methods of the application
 	 *  
 	*/
 	
@@ -74,10 +73,7 @@ public class Client  {
 	
 	//real timestamp
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
-			
-	//List of goods of the client
-	private static HashMap<String, String> goodsList = new HashMap<String, String>();
-	
+				
 	// socket to talk to other clients
 	private ServerSocket clientSocket;
 	
@@ -87,23 +83,34 @@ public class Client  {
 	// to check if client is running
 	private boolean clientRunning;
 
+
+	/*
+	 *  
+	 *  All variables used to implement a Tolerant Fault Service
+	*/
+
 	// total number of Servers in system
 	private static int numberOfServers;
 
 	//max number of faults that system tolerate
 	private static int maxFaults;
 
-	// number of faults counted 
-	private static int countFaults;
+	// Next timestamp to be written
+	private static int wts=0;
 
-	
+	// id of current read operation
+	private static int rid=0;
+
 
 	
 	/*
 	 *  
-	 *  All hashmaps and lists used in the client side
+	 *  Hashmaps and lists used to receive and keep information from the server(s)
 	 *  
 	*/
+
+	//List of goods of the client
+	private static HashMap<String, String> goodsList = new HashMap<String, String>();
 
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
 	private static HashMap<String, Integer> portsList = new HashMap<String, Integer>();
@@ -118,11 +125,27 @@ public class Client  {
 	private static ArrayList<ObjectOutputStream> objOutputList = new ArrayList<ObjectOutputStream>();
 	
 
+	/*
+	 *  
+	 *  Hashmaps used to implement the a Byzantine Fault Tolerant service -> usign (1,N) Byzantine Atomic register
+	 *  
+	*/
+
 	//To store all responses received by the servers -> allresponses: (message, number of votes of that message)
 	private static Map<String, Integer>  serverResponses = new HashMap<String, Integer>(); 
 
+	//List that keeps the writes (servers) that have been acknowledged -> that return a ACK
+	private HashMap<Integer, Boolean> ackList = new HashMap<Integer, Boolean>();
 
-	
+	//List of returned values, for reading
+	private HashMap<String, Pair> readList = new HashMap<String, Pair>();  // String -> message received, Pair -> (Number of votes, Timestamp)
+
+
+	/*
+	 *  
+	 *  Methods of the application
+	 *  
+	*/
 	public String getClientID() {
 		return clientID;
 	}
@@ -155,10 +178,24 @@ public class Client  {
 				
 	}
 
+	class Pair {
+
+		// number of votes
+	  	final Integer value;
+
+	  	// latest timestamp
+	  	final LocalDateTime readTimestamp;
+
+	  	Pair(Integer x, LocalDateTime y) {
+
+	  		this.value = x; 
+	  		this.readTimestamp = y;
+      	}
+    }
+
 	/*
 	 * To start the application
-	 */
-	
+	*/
 	public boolean start() {
 		
 		int retryCounter = 0;
@@ -238,15 +275,13 @@ public class Client  {
 						display("Exception creating new Input/output Streams: " + eIO);
 						return false;
 					}
-
 				}
 								
 				// creates the Thread to listen from the server 
 				new ListenFromServer().start();	
 											
 				// success we inform the caller that it worked
-				return true;
-							
+				return true;				
 			} 
 			
 			// exception handler if it failed
@@ -272,21 +307,19 @@ public class Client  {
 
 		
 	// Client wants to see the state of some specific good (available or not available)
-		private static String getStateOfGood (String good){	
-			return good;
-		}
+	private static String getStateOfGood (String good){	
+		return good;
+	}
 			
 	
 	// Client wants to sell some specific good
-	private static String intentionToSell (String good){
-				
+	private static String intentionToSell (String good){				
 		return good;
 	
 	}
 	
 	//Client wants to buy a specific good from another client
-	private static String buyGood (String good) {
-				
+	private static String buyGood (String good) {				
 		return good;
 	}
 		
@@ -296,7 +329,6 @@ public class Client  {
 	 * To send a message to the console
 	*/
 	private void display(String msg) {
-
 		System.out.println(msg);
 		
 	}
@@ -321,8 +353,7 @@ public class Client  {
 		try{
 			if(socket != null) socket.close();
 		}
-		catch(Exception e) {}
-            			
+		catch(Exception e) {}       			
 	}
 	
 	
@@ -372,6 +403,7 @@ public class Client  {
 					
 					System.out.println("Invalid port number.");
 					System.out.println("Usage is: > java Client [clientID] [portNumber] [serverAddress]");
+
 					return;
 				}
 				
@@ -419,9 +451,6 @@ public class Client  {
 		
 		//sequence number is initialized
 		seqNumber = 0;
-
-		// number of faults counted is initialized
-		countFaults = 0;
 		
 		//format that is gone be used
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -461,16 +490,13 @@ public class Client  {
 			        //send message
 					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0));
 					
-					i=1;
-					
+					i=1;	
 				}
 				
 				else{
 					
-					System.out.println("Wrong input! 1. Type 'ENTER' to enter in the application");
-					
-				}
-				
+					System.out.println("Wrong input! 1. Type 'ENTER' to enter in the application");	
+				}	
 			}
 			
 			
@@ -494,14 +520,19 @@ public class Client  {
 					break;
 				}
 									
-				// message to inform server that client want to sell some good
+				// message to inform server that client want to sell some good -> SELL is a write operation
 				else if(msg.equalsIgnoreCase("SELL")) {
 					
 					System.out.println("Write the good you want to sell: ");
 					
 					String msgGoodToServer = scan.nextLine();
 					
-					msgGoodToServer=intentionToSell(msgGoodToServer);
+					msgGoodToServer = intentionToSell(msgGoodToServer);
+
+					// increment the next timestamp to be written
+					wts ++;
+
+					msgGoodToServer = msgGoodToServer + " " + wts;
 							
 					byte[] tempBytes = msgGoodToServer.getBytes();	
 					
@@ -509,11 +540,10 @@ public class Client  {
 					
 			        String time = dateTime.format(formatter);
 									
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0));	
-							
+					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0));				
 				}
 				
-				// message to the server to get the state of some good
+				// message to the server to get the state of some good -> STATEGOOD is a read operation
 				else if(msg.equalsIgnoreCase("STATEGOOD")) {
 								
 					System.out.println("Write the product of which the state you want to check: ");
@@ -522,14 +552,18 @@ public class Client  {
 								
 					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
 					
-					byte[] tempBytes =msgGoodStateToServer.getBytes();
-					
 					LocalDateTime dateTime = LocalDateTime.now();
 					
 			        String time = dateTime.format(formatter);
+
+			        //increment id of the operation
+			        rid ++;
+
+			        msgGoodStateToServer = msgGoodStateToServer + " " + rid;
+
+			        byte[] tempBytes =msgGoodStateToServer.getBytes();
 																				
-					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0));	
-																							
+					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0));																					
 				}
 				
 				// message to the server to buy some good
@@ -549,7 +583,7 @@ public class Client  {
 			     		
 			        // the good that will be sold
 			        String tempGood = w[1];
-			        
+
 			        // final msg that will be sent
 			        String temp = clientID + " " + tempGood;
 			        
@@ -564,8 +598,7 @@ public class Client  {
 			        		Integer tempPort = item.getValue();
 			        					        					        					        		
 			        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort, 0));
-			        	}
-			        	
+			        	}       	
 			        }																					
 				}
 								
@@ -573,12 +606,9 @@ public class Client  {
 				else {
 					
 					//Wrong Input from the Client
-					System.out.println("Wrong input! Try again please. ");
-					
-				}
-				
-			}
-			
+					System.out.println("Wrong input! Try again please. ");	
+				}	
+			}	
 		}
 		
 		// close resource
@@ -598,6 +628,8 @@ public class Client  {
 		public void run() {
 			
 			int contador = 0;
+
+			String result = null;
 
 			while(true) {
 				
@@ -632,26 +664,22 @@ public class Client  {
 
 									// creates the Thread to listen from the clients
 									new ListenFromClients().start();
-
 								}
 																
 								System.out.println("\nHello.! Welcome to HDS Notary Application");
 								System.out.println("1. Type 'SELL' to inform the Notary that you want to sell some good");
 								System.out.println("2. Type 'STATEGOOD' to see if some specific good is available for sell");
 								System.out.println("3. Type 'BUYGOOD' to buy a good");
-								System.out.println("4. Type 'LOGOUT' to logoff from application");
-								
+								System.out.println("4. Type 'LOGOUT' to logoff from application");		
 							}
 							
 							else {
 								
 								display("The Message hasn't the right sequence number. Won't accept it");
 							}
-							
-					
 						}
 					
-						// update the client's portsList list
+						// update the client's portsList list -> A new client join the application
 						if (message.getType() == 6){
 													
 							//get the message
@@ -690,24 +718,22 @@ public class Client  {
 							    String value = item.getValue();
 							    
 							    //Add the client name and his private port connection
-							    portsList.put(key, Integer.parseInt(value));
-							    									
+							    portsList.put(key, Integer.parseInt(value));	    									
 							}
 
 							if (v == (objInputList.size()-1)){
 
 								// basta aumentar uma vez o número sequencial, dado que a mesma mensagem vai ser recebida de n servers
 								seqNumber = Integer.parseInt(seqDecryt) + 1 ;
-
 							}
-
 						}
 					
+						// we passed the init part of the system
 						else  {
 
 							//get the message
 							String msgDecrypt = decryptMessage(message.getData(), message.getPort());
-							
+
 							//Get the time of the message received
 							String timeReceived = decryptMessage(message.getLocalDate(), message.getPort());
 														
@@ -732,20 +758,37 @@ public class Client  {
 
 										// basta aumentar uma vez o número sequencial, dado que a mesma mensagem vai ser enviada para os n servers
 										seqNumber = Integer.parseInt(seqDecryt) + 1 ;
-
 									}
 
-									// process message received from the server
-									String result = processResponses(message.getType(), msgDecrypt);
+									// check what type of message the client received
+									else {
 
-									// we have a final result
-									if (result != null) {
+										// Its a response of a SELL's message -> Write Operation
+										if(message.getType() == 1){
 
-										display(result);
+											// process message received from the server
+											result = writeOperation(msgDecrypt, message.getPort());
 
-										System.out.print("> ");
+											// get the final answer
+											if (!result.equals("Not ok")){
 
-									}
+												display("The good is now for selling.");
+											}									
+										}
+
+										// Its a response of a STATEGOOD's message -> Read Operation
+										else if(message.getType() == 2){
+
+											// process message received from the server
+											result = readOperation(msgDecrypt, tAtual);
+											
+											// get the final answer
+											if (!result.equals("No")){
+
+												display("Resposta final: " + result);
+											}
+										}
+									}									
 								}
 								
 								else {
@@ -761,20 +804,15 @@ public class Client  {
 								
 								display("The Message has expired. Won't accept it");
 							}
-						
 						}
-
-
-					}
-																		
+					}														
 				}
 				
 				catch(IOException e) {
 					
 					display(notif + "Can´t connect to server. Connection was closed. " + e + notif);
 					
-					break;
-										
+					break;						
 				}
 				
 				catch(ClassNotFoundException e2) {
@@ -811,8 +849,7 @@ public class Client  {
 					// if client is connected, create its thread
 					ClientThread t = new ClientThread(clientToClientSocket);
 														
-					t.start();
-										
+					t.start();					
 				}
 				
 				// try to stop the client
@@ -838,7 +875,6 @@ public class Client  {
 				
 				e.printStackTrace();
 			}
-			
 		}
 	}
 	
@@ -878,8 +914,7 @@ public class Client  {
 				display("Exception creating new Input/output Streams: " + e);
 				
 				return;
-			}
-			
+			}	
 		}
 		
 			
@@ -1001,11 +1036,9 @@ public class Client  {
 
 					//increase the sequence number
 					seqNumber = Integer.parseInt(count) + 1;
-
 				} 
 							
 				socketToServer.setSoTimeout(5000*100);  //set timeout to 500 seconds
-
 			}
 															
 		}
@@ -1051,11 +1084,9 @@ public class Client  {
 			
 			socketToClient.setSoTimeout(5000*100);  //set timeout to 500 seconds
 			
-			sOutputToClient.close();
-										
+			sOutputToClient.close();								
 		}
 		
-				
 		catch(IOException e) {
 			
 			display("Exception writing to other client: " + e);
@@ -1065,392 +1096,210 @@ public class Client  {
 
 
 	/*
-		* //===========  Process messages received by all servers =================
+		* //===========  =================
 		*	 
-		* processResponses method
+		* readOperation method
 		* 
-		* 		Takes the server's port, the message's type, the message string, and the timestamp as input and implements a specific couting vote.
+		* 		Takes the the message string, and the timestamp as input and implements a specific couting vote.
 		*
-		*		Returns the final response that will be shown to the client 
+		*		
 		* 
 	*/
-	public String processResponses(int typeMessage, String messageReceived){
+	public String readOperation(String messageReceived, LocalDateTime timestamp){
+		
+		String[] msgReceived = messageReceived.split(" ");
 
-			String finalResponse = null;
+		String ridTemp = msgReceived[msgReceived.length - 1];
 
-			// its a response of a SELL message
-			if (typeMessage == 1){
+		//get the id of the operation that the server sent
+		int ridReceived=Integer.parseInt(ridTemp);
 
-				// Possible message received by the server: the good is now for sale
-				if(messageReceived.equals("Yes")){
+		String messageOfServer = "";
 
-					// the list is empty
-					if (serverResponses.size() == 0){
+		for (int q = 0; q < msgReceived.length - 1; q ++){
 
-						serverResponses.put(messageReceived, 1);
+			if (q == 0){
 
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-				// Other possible message received by the server -> the operation of selling the good was not successful
-				else if(messageReceived.equals("No. Your are not the owner of that good.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-				// Other possible message received by the server -> the operation of selling the good was not successful
-				else if(messageReceived.equals("No. The good was not found in the clients goods list.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-
+				messageOfServer = messageOfServer + msgReceived[q];
 			}
 
-			// its a response of a STATEGOOD message
-			else if (typeMessage == 2){
-
-				// possible message received by the server -> the good is not for sale
-				if(messageReceived.equals("No. The good is not for sale.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-				// Other possible message received by the server -> the good does not exist on the application
-				else if(messageReceived.equals("No. The good does not exist on the application.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-
-				// the good is now for sale
-				else {
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-
-			}
-
-			// its a response of a TRANSFERGOOD message
-			else if (typeMessage == 4){
-
-				// the transfer was successfull
-				if(messageReceived.equals("Yes. The transfer was successful.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-				// Other possible message received by the server -> the operation of transfer the good was not successful
-				else if(messageReceived.equals("No. You can't transfer your own good to yourself.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-				// Other possible message received by the server -> the buyer ID does not exist
-				else if(messageReceived.equals("No. The Buyer is not on the application.")){
-
-					// the list is empty
-					if (serverResponses.size() == 0){
-
-						serverResponses.put(messageReceived, 1);
-
-					}
-
-					else {
-
-						for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
-			        			
-				        	// check if this message was already in list
-				        	if (item.getKey().equals(messageReceived)){
-				        		
-				        		// if so, increase the number of votes
-				        		serverResponses.put(messageReceived, item.getValue() + 1);
-				        					        					        					        		
-				        	}
-
-				        	// the list is not empty -> there was at least one fault
-				        	else {
-
-				        		countFaults ++;
-
-				        		// if not, add it to the list with one vote
-				        		serverResponses.put(messageReceived, 1);
-
-				        	}
-			        	
-			        	}
-
-					}
-				}
-
-			}
-
-			// message's type its incorrect
 			else {
 
-				display("The Message has a invalid type. ");
-			}
+				messageOfServer = messageOfServer + " " + msgReceived[q];
+			}	
+		}
+
+		//check if message has the right rid
+		if (rid == ridReceived){
+
+				processReadMessage(messageOfServer, timestamp);
+
+				String resposta = getResponseReadOperation();
 
 
-			// check if we have already a final response
-			for (Map.Entry<String, Integer> item : serverResponses.entrySet()) {
+				// We still not have a final response
+				if (resposta.equals("No")){
 
-
-				if(item.getValue() >= (socketsList.size() - maxFaults)){
-
-					finalResponse = item.getKey();
-
-					serverResponses.clear();
-
-					countFaults = 0;
+					return "No";
 				}
 
-			}
+				// we have a final response
+				else {
 
-		return finalResponse;		
+					return resposta;				
+				}
+		}
 
+		// the message does not have the right rid
+		else {
+		}
+
+		return null;
 	}
+
+	/*
+		* //=========== processReadMessage =================
+		*	 
+		* processReadMessage  method
+		* 
+		* 		Takes the message String and the timestamp which the message was received
+		*
+		*		Check if the message was received, if so check if the timestamp received is higher that the one that is on the HashMap, if so increment the number of votes of that message
+		* 
+	*/
+	private void processReadMessage (String msgOfServer, LocalDateTime timestamp){
+
+		// the readList is empty
+		if (readList.size() == 0){
+
+			readList.put(msgOfServer, new Pair(1, timestamp));
+		}
+
+		else {
+
+			for(String tempMsg: readList.keySet()) {
+
+				//this message was already received before
+				if (tempMsg.equals(msgOfServer)){
+
+					long diffRead = ChronoUnit.SECONDS.between(readList.get(tempMsg).readTimestamp, timestamp);
+
+					//the timestamp received is higher -> we have to change it
+					if(diffRead > 0){
+
+						// update the timeStamp
+						readList.put(tempMsg, new Pair(readList.get(tempMsg).value + 1, timestamp));
+					}
+
+					// the timestamp is not higher -> what do we do??
+					else {
+					}
+				}
+
+				// its the first time this message is received -> There was a fault
+				else{
+
+					 readList.put(msgOfServer, new Pair(1, timestamp));	 
+				}
+			}
+		}
+	}
+
+	// get the final response of STATEGOOD call received by all the servers
+	private String getResponseReadOperation () {
+
+		for(String tempMsg: readList.keySet()) {
+
+			if (readList.get(tempMsg).value >= (numberOfServers - maxFaults)){
+
+				return tempMsg;
+			}
+		}			
+
+		return "No";
+	}
+
+
+	/*
+		* //===========  =================
+		*	 
+		* writeOperation method
+		* 
+		* 		Takes the the message string, and the timestamp as input and implements a specific couting vote.
+		*
+		*		
+		* 
+	*/
+	public String writeOperation(String messageReceived, Integer serverPort){
+	
+		String[] msgReceived = messageReceived.split(" ");
+
+		// get the wts received
+		String wtsTemp = msgReceived[1];
+
+		//get the id of the operation that the server sent
+		int wtsReceived=Integer.parseInt(wtsTemp);
+
+		//check if message has the right wts
+		if (wts == wtsReceived){
+
+				if (msgReceived[0].equals("ACK")){
+
+					// put the response and the port of the respective server in the list that keeps the ACK's responses and who answered that
+					ackList.put(serverPort, true);
+				}
+
+				// check condition of the algorithm
+				if (ackList.size() >= (numberOfServers - maxFaults)){
+
+					// reset the list
+					ackList = new HashMap<Integer, Boolean>();
+
+					return "Ok";
+				}
+		}
+
+		// the message does not have the right wts
+		else {
+		}
+
+		return "Not ok";
+	}
+
 	
 	
-	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	// =============================================================================================================================================================================
+
+	/*
+		*	 
+		* 		Bellow are standing the methods related to the RSA keys (private and public keys) and to the decryption and encryption of messages exchange on the application 
+		* 
+	*/
+
+	// =============================================================================================================================================================================
+
+
+
+
 	/*
 		* //===========  Encrypted message using the private key of the Client =================
 		*	 
@@ -1550,8 +1399,7 @@ public class Client  {
 	        		             
 	        	byte[] msg = cipher.doFinal(encryptedMessage);
 	        		        	
-	        	return new String(msg);
-	             
+	        	return new String(msg);        
 	        }
 	        
 	        catch(Exception e) {
@@ -1561,7 +1409,7 @@ public class Client  {
 	        	e.printStackTrace();
 	        	
 	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
-	          }
+	        }
 	        
 	        return null;
 	 }
@@ -1590,7 +1438,6 @@ public class Client  {
 	    Key key = keystore.getKey(alias, "SEC".toCharArray());
 	    
 	    return (PrivateKey) key;
-	 
 	}
 	
 
@@ -1617,8 +1464,6 @@ public class Client  {
 	    
 	    PublicKey pubKey = cert.getPublicKey();
 	    
-	    return pubKey;
-	    
-	}
-	
+	    return pubKey;   
+	}	
 }
