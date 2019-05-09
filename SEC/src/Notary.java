@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.security.*;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
@@ -23,7 +24,7 @@ public class Notary {
 
 	/*
 	 *  
-	 *  All variables and objets used in the server side
+	 *  All variables and objects used in the server side
 	 *  
 	*/	
 
@@ -72,13 +73,16 @@ public class Notary {
 	private ArrayList<ClientThread> clientsList;
 	
 	// HashMap to keep the goods of each Client
-	private HashMap<String, String> clientsGoodsList = new HashMap<String,String>();
+	private ConcurrentHashMap <String, String> clientsGoodsList = new ConcurrentHashMap <String,String>();
 	
 	// HashMap to keep the goods to sell of each Client
-	private HashMap<String, String> clientsGoodsToSell = new HashMap<String,String>();
+	private ConcurrentHashMap <String, String> clientsGoodsToSell = new ConcurrentHashMap <String,String>();
+	
+	// save the transactions's history
+	private Map<LocalDateTime, String[]> transactionsHistory = new ConcurrentHashMap <LocalDateTime, String[]>(); 
 	
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
-	private HashMap<String, Integer> portsList = new HashMap<String, Integer>();
+	private ConcurrentHashMap <String, Integer> portsList = new ConcurrentHashMap <String, Integer>();
 	
 
 
@@ -137,7 +141,7 @@ public class Notary {
 					ObjectInputStream in = new ObjectInputStream(fileIn);
 					
 					//if there is, recover that information to the server's list
-					clientsGoodsList  = (HashMap) in.readObject();
+					clientsGoodsList  = (ConcurrentHashMap) in.readObject();
 				}
 		        
 			} catch (ClassNotFoundException e1) {
@@ -232,91 +236,89 @@ public class Notary {
 	
 	
 	// to broadcast a message to all Clients
-	private synchronized boolean broadcast(String message) throws Exception {
-		
-		// add timestamp to the message
-		String time = sdf.format(new Date());
-		
-		// to check if message is private i.e. client to client message
-		String[] w = message.split(" ",3);
-		
-		boolean isPrivate = false;
-		
-		if(w[1].charAt(0)=='@') 
+		private synchronized boolean broadcast(Integer typeMessage, String message) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 			
-			isPrivate=true;
-		
-		
-		// if private message, send message to mentioned clientID only. (When the option BuyGood is called)
-		if(isPrivate==true)
-		{
-			String tocheck=w[1].substring(1, w[1].length());
+			// add timestamp to the message
+			String time = sdf.format(new Date());
 			
-			message=w[0]+w[2];
-						
-			String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + ". Inform the Notary about the transfer. "  + "\n";
+			// to check if message is private i.e. client to client message
+			String[] w = message.split(" ",3);
 			
-			boolean found=false; 
-						
-			// we loop in reverse order to find the mentioned clientID
-			for(int y=clientsList.size(); --y>=0;){
+			boolean isPrivate = false;
+			
+			if(w[1].charAt(0)=='@') 
 				
-				ClientThread ct1=clientsList.get(y);
+				isPrivate=true;
+			
+			
+			// if private message, send message to mentioned clientID only. (When the option BuyGood is called)
+			if(isPrivate==true)
+			{
+				String tocheck=w[1].substring(1, w[1].length());
 				
-				String check=ct1.getClientID();
+				message=w[0]+w[2];
+							
+				String messageLf = time + " " + " The buyer " + w[0] + " will buy the following good from you: " + w[2] + ". Inform the Notary about the transfer. "  + "\n";
 				
-				if(check.equals(tocheck)) {
+				boolean found=false; 
+							
+				// we loop in reverse order to find the mentioned clientID
+				for(int y=clientsList.size(); --y>=0;){
 					
-					// try to write to the Client if it fails remove it from the list
-					if(!ct1.writeMsg(messageLf)) {
+					ClientThread ct1=clientsList.get(y);
+					
+					String check=ct1.getClientID();
+					
+					if(check.equals(tocheck)) {
 						
-						clientsList.remove(y);
-						display("Disconnected Client " + ct1.clientID + " removed from list.");
+						// try to write to the Client if it fails remove it from the list
+						if(!ct1.writeMsg(typeMessage, messageLf)) {
+							
+							clientsList.remove(y);
+							display("Disconnected Client " + ct1.clientID + " removed from list.");
+						}
+						
+						// clientID found and delivered the message
+						found=true;
+						
+						break;
 					}
 					
-					// clientID found and delivered the message
-					found=true;
-					
-					break;
 				}
 				
+				// mentioned user not found, return false
+				if(found!=true)
+				{
+					return false; 
+				}
 			}
 			
-			// mentioned user not found, return false
-			if(found!=true)
+			// if message is a broadcast message
+			else
 			{
-				return false; 
-			}
-		}
-		
-		// if message is a broadcast message
-		else
-		{
-			String messageLf = time + " " + message + "\n";
-			
-			// display message
-			System.out.print(messageLf);
-			
-			// we loop in reverse order in case we would have to remove a Client
-			// because it has disconnected
-			for(int x = clientsList.size(); --x >= 0;) {
+				String messageLf = time + " " + message + "\n";
 				
-				ClientThread ct = clientsList.get(x);
+				// display message
+				System.out.print(messageLf);
 				
-				
-				// try to write to the Client if it fails remove it from the list
-				if(!ct.writeMsg(messageLf)) {
+				// we loop in reverse order in case we would have to remove a Client
+				// because it has disconnected
+				for(int x = clientsList.size(); --x >= 0;) {
 					
-					clientsList.remove(x);
+					ClientThread ct = clientsList.get(x);
 					
-					display("Disconnected Client " + ct.clientID + " removed from list.");
+					
+					// try to write to the Client if it fails remove it from the list
+					if(!ct.writeMsg(typeMessage, messageLf)) {
+						
+						clientsList.remove(x);
+						
+						display("Disconnected Client " + ct.clientID + " removed from list.");
+					}
 				}
 			}
+			return true;	
 		}
-		return true;
-		
-		
-	}
 
 	// if client sent LOGOUT message to exit
 	synchronized void remove(int id) throws Exception {
@@ -338,13 +340,14 @@ public class Notary {
 				break;
 			}
 		}
-		broadcast(notif + disconnectedClient + " has left the application. " + notif);
+		
+		broadcast(5, notif + disconnectedClient + " has left the application. " + notif);
 	}
 	
 	
 	
 	// to error message to a specific client
-	private synchronized boolean sendErrorMsg(String clientName, String errorMsg) throws Exception {
+	private synchronized boolean sendErrorMsg(Integer typeMessage, String clientName, String errorMsg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 			
 		for(int t = clientsList.size(); --t >= 0;) {
 				
@@ -352,12 +355,12 @@ public class Notary {
 			
 			if(clientName.equals(cT1.getClientID())){
 				
-				cT1.writeMsg(errorMsg);
+				cT1.writeMsg(typeMessage, errorMsg);
 			}			
 		}
 			
 		return true;
-			
+				
 	}
 	
 	
@@ -515,7 +518,6 @@ public class Notary {
 					return true;
 				}
 			}
-			
 			return false;
 		}		
 		
@@ -524,7 +526,6 @@ public class Notary {
 			
 			// to loop until LOGOUT
 			boolean serverRunning = true;
-			
 			
 			while(serverRunning) {
 				
@@ -607,25 +608,18 @@ public class Notary {
 																					
 								clientID = temporaryList.get(nomeCliente);
 																										
+								int tempPort = 1500 + clientsList.size();
+								
+								String nomeTemp = clientID;
+								
+								portsList.put(nomeTemp, tempPort);
+																	
 								try {
 									
-									//broadcast(notif + clientID + " has joined the application " + notif);
-									
-									int tempPort = 1500 + clientsList.size();
-									
-									String nomeTemp = clientID;
-									
-									portsList.put(nomeTemp, tempPort);
-																		
 									updateClientsPortsTables(portsList.toString());
 									
-								} 
-								
-								catch (IOException | GeneralSecurityException e1) {
-									
-									e1.printStackTrace();
 								} catch (Exception e) {
-									// TODO Auto-generated catch block
+
 									e.printStackTrace();
 								}
 												
@@ -681,29 +675,30 @@ public class Notary {
 								break;
 												
 							case MessageHandler.SELL:
+
+								// the good that the client wants to sell + the wts
+								String[] msgReceivedSell = mensagemDecryt.split(" ");
 							
-								display("The client " + clientID + " want to sell the following good: " + mensagemDecryt);
+								display("The client " + clientID + " want to sell the following good: " + msgReceivedSell[0]);
 								
 								// Check if the good exists on the application 
-								if(checkGood(mensagemDecryt) == true){
+								if(checkGood(msgReceivedSell[0]) == true){
 									
 									//check if the clientID is the owner of the good, and the good exists on the application
-									if (checkGoodToSell(clientID, mensagemDecryt) == true){
+									if (checkGoodToSell(clientID, msgReceivedSell[0]) == true){
 										
 										//put the good on the list of products to sell
-								    	clientsGoodsToSell.put(clientID, mensagemDecryt);
+								    	clientsGoodsToSell.put(clientID, msgReceivedSell[0]);
 								    	
 								    	display("The good is now for sale.");
 								    	
 								    	try {
 								    		
-											writeMsg("Yes" + "\n");
+								    		//All Conditions passed -> Return a ACK to the Client + the wts received
+											writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1]);
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
-											e.printStackTrace();
-										} catch (Exception e) {
-											// TODO Auto-generated catch block
 											e.printStackTrace();
 										}
 								    								
@@ -715,13 +710,10 @@ public class Notary {
 										
 										try {
 																						
-											sendErrorMsg(clientID, "No. Your are not the owner of that good." + "\n");
+											sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1]);
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
-											e.printStackTrace();
-										} catch (Exception e) {
-											// TODO Auto-generated catch block
 											e.printStackTrace();
 										}
 									}
@@ -734,30 +726,30 @@ public class Notary {
 									
 									try {
 																										
-										sendErrorMsg(clientID, "No. The good was not found in the clients goods list." + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1]);
 										
 									} catch (IOException | GeneralSecurityException  e) {
 										
-										e.printStackTrace();
-									} catch (Exception e) {
-										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}
 								}
 							
 								break;
 													
-						
+				
 							case MessageHandler.STATEGOOD:
-								
-								display("The client " + clientID + " want to check the state of the following good: " + mensagemDecryt);
-								
+																
 								int s= 0;
 								
 								int l = 0;
+
+								// the good that the client wants to know its state + the id of the operation
+								String[] msgReceivedState = mensagemDecryt.split(" ");
+
+								display("The client " + clientID + " want to check the state of the following good: " + msgReceivedState[0]);
 								
 								// Check if the good exists on the application 
-								if(checkGood(mensagemDecryt) == true){
+								if(checkGood(msgReceivedState[0]) == true){
 									
 									l = 1;
 									
@@ -767,7 +759,7 @@ public class Notary {
 									    String value = item.getValue();
 									    							    									    
 									    //Verify if the requested good is on sale 
-									    if (value.equals(mensagemDecryt) && (s != 1)){
+									    if (value.equals(msgReceivedState[0]) && (s != 1)){
 									    	
 									    	s=1;
 									    	
@@ -775,19 +767,14 @@ public class Notary {
 									    	
 									    	try {
 									    		
-												writeMsg("Good: " + value + ", " + "Owner: " + key + "\n");
+												writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1]);
 												
 											} catch (IOException | GeneralSecurityException  e) {
 											
 												e.printStackTrace();
-											} catch (Exception e) {
-												// TODO Auto-generated catch block
-												e.printStackTrace();
-											}
-									    
+											}   
 									    }						
-									}
-									
+									}	
 								}
 							
 								//This good is not for sale   
@@ -797,17 +784,12 @@ public class Notary {
 									
 									try {
 																										
-										sendErrorMsg(clientID, "No. The good is not for sale. " + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1]);
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
-									
-										e.printStackTrace();
-									} catch (Exception e) {
-										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}
-									
 								}
 								
 								//The good does not exist on the application.
@@ -817,17 +799,13 @@ public class Notary {
 									
 									try {
 																									
-										sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
+										sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1]);
 																		
 									} catch (IOException | GeneralSecurityException  e) {
 										
 									
 										e.printStackTrace();
-									} catch (Exception e) {
-										// TODO Auto-generated catch block
-										e.printStackTrace();
 									}
-									
 								}
 								
 								break;
@@ -836,9 +814,7 @@ public class Notary {
 							case MessageHandler.TRANSFERGOOD:
 								
 								String[] m = (mensagemDecryt.toString()).split(" ", 3);
-								
-								System.out.println("Mensagem recebida: " + mensagemDecryt);
-														
+																						
 								if (m.length == 2){
 																																				
 									//The BuyerID
@@ -871,13 +847,10 @@ public class Notary {
 										    		
 													try {
 														
-														sendErrorMsg(clientID, "No. You can't transfer your own good to yourself. " + "\n");		
+														sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself.");		
 														
 													} catch (IOException | GeneralSecurityException e) {
 														
-														e.printStackTrace();
-													} catch (Exception e) {
-														// TODO Auto-generated catch block
 														e.printStackTrace();
 													}
 										    	}
@@ -902,28 +875,50 @@ public class Notary {
 																clientsGoodsList.remove(value, key);
 																
 																clientsGoodsToSell.remove(key, value);	
-																
-																// buyersInterest.remove(buyer, good);
-																
+																																
 																display("The transfer was successful. ");
 																
 																//inform the seller about the outcome of the transfer
-													    		Boolean response1 = broadcast(clientID + ": " + "Yes. The transfer was successful. ");
+													    		writeMsg(4, "Yes. The transfer was successful.");
 													    													
 																//inform the buyer about the outcome of the transfer
-													    		Boolean response2 = broadcast(ct1.getClientID() + ": " + "Yes. The transfer was successful. ");		
-																
-													    																			
+													    		ct1.writeMsg(4, "Yes. The transfer was successful.");		
+																																
 															    try {
 																
 															    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
-																	ObjectOutputStream oos = new ObjectOutputStream(fos1);
+
+															    	synchronized(fos1){
+
+																		ObjectOutputStream oos = new ObjectOutputStream(fos1);
+																		
+																		//save information of the application to file, in case of server crash
+																		oos.writeObject(clientsGoodsList);
+																		
+																		oos.close();
+																		fos1.close();
+																	}
+
+																	// save the information of the transaction
+																	String[] transactionInformation = new String[]{ct1.getClientID(), clientID, good}; 
+
 																	
-																	//save information of the application to file, in case of server crash
-																	oos.writeObject(clientsGoodsList);
-																	
-																	oos.close();
-																	fos1.close();
+																	// save this information in the 
+																	transactionsHistory.put(tAtual, transactionInformation);
+
+																	FileOutputStream fos2 = new FileOutputStream("transactionsHistory.ser");
+
+															    	synchronized(fos2){
+
+																		ObjectOutputStream oos1 = new ObjectOutputStream(fos2);
+																		
+																		//save information of the application to file, in case of server crash
+																		oos1.writeObject(transactionsHistory);
+																		
+																		oos1.close();
+																		fos2.close();
+																	}
+
 																    
 																} catch (FileNotFoundException e) {
 																	
@@ -937,9 +932,6 @@ public class Notary {
 															} catch (IOException | GeneralSecurityException  e) {
 																
 																e.printStackTrace();
-															} catch (Exception e1) {
-																// TODO Auto-generated catch block
-																e1.printStackTrace();
 															}
 															
 														}
@@ -951,13 +943,10 @@ public class Notary {
 										    			
 										    			try {
 															
-															sendErrorMsg(clientID, "No. The Buyer is not on the application. " + "\n");
+															sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application.");
 																															
 														} catch (IOException | GeneralSecurityException e) {
 															
-															e.printStackTrace();
-														} catch (Exception e) {
-															// TODO Auto-generated catch block
 															e.printStackTrace();
 														}
 										    		}
@@ -974,13 +963,10 @@ public class Notary {
 											
 											try {
 																								
-												sendErrorMsg(clientID, "No. The good is not for sale." + "\n");
+												sendErrorMsg(message.getType(), clientID, "No. The good is not for sale.");
 																					
 											} catch (IOException | GeneralSecurityException e) {
 											
-												e.printStackTrace();
-											} catch (Exception e) {
-												// TODO Auto-generated catch block
 												e.printStackTrace();
 											}
 											
@@ -994,13 +980,10 @@ public class Notary {
 										
 										try {
 																						
-											sendErrorMsg(clientID, "No. The good does not exist on the application. " + "\n");
+											sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application. ");
 											
 										} catch (IOException | GeneralSecurityException e) {
 										
-											e.printStackTrace();
-										} catch (Exception e) {
-											// TODO Auto-generated catch block
 											e.printStackTrace();
 										}
 									
@@ -1011,13 +994,10 @@ public class Notary {
 									
 									try {
 										
-										sendErrorMsg(clientID, "No. Wrong Input. " + "\n");
+										sendErrorMsg(message.getType(), clientID, "No. Wrong Input. ");
 										
 									} catch (IOException | GeneralSecurityException e) {
 									
-										e.printStackTrace();
-									} catch (Exception e) {
-										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}	
 								}
@@ -1049,11 +1029,8 @@ public class Notary {
 				
 				remove(id);
 				
-			} catch (IOException | GeneralSecurityException e) {
-				
-				e.printStackTrace();
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
+				
 				e.printStackTrace();
 			}
 			close();
@@ -1081,7 +1058,7 @@ public class Notary {
 		
 
 		// write a String to the Client output stream
-		private boolean writeMsg(String msg) throws Exception   {
+		private boolean writeMsg(Integer typeMessage, String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException{
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1107,8 +1084,15 @@ public class Notary {
 				//convert to string
 				String time = timeCurrent.format(formatter);
 				
-				//secure the current message
-				msgEncrypt = new MessageHandler(5, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+				try {
+					
+					//secure the current message
+					msgEncrypt = new MessageHandler(5, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+				
+				} catch (Exception e) {
+				
+					e.printStackTrace();
+				}
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1220,8 +1204,22 @@ public class Notary {
 	}
 	
 	
+
+	// =============================================================================================================================================================================
+
 	/*
-	 * //=========== Decipher/decrypt the encrypted message using the public key of Client =================
+		*	 
+		* 		Bellow are standing the methods related to the RSA keys (private and public keys) and to the decryption and encryption of messages exchange on the application 
+		* 
+	*/
+
+	// =============================================================================================================================================================================
+
+	
+	
+	
+	/*
+	 * //=========== Decipher the encrypted message using the public key of Client =================
 	 * 
 	 * decryptMessage method.
 	 * 
@@ -1231,41 +1229,35 @@ public class Notary {
 	 *  
 	*/
 	
-	public String decryptMessage(byte[] message,byte[] signature, String id) {
+	public String decryptMessage(byte[] message, byte[] signature, String id) {
 		
-		try
-	        {	
+		try {	
 			
-						
-				PublicKey pK = readPublicKeyFromFile(id);
-	            	            	            
-				boolean ver = verify(message,signature,pK);
-				
-				System.out.println(ver);
-	        	
-	        	if (ver) {
-	        		
-	        		return new String(message);
-	        		
+			PublicKey pK = readPublicKeyFromFile(id);
+            	            	            
+			boolean ver = verify(message,signature,pK);
+        	
+        	if (ver) {
+        		
+        		return new String(message);	        	
+        	}
+	    }
 	        
-	        	
-	        	}
-	        }
-	        
-	        catch(Exception e) {
-	        	
-	        	e.getCause();
-	        
-	        	e.printStackTrace();
-	        	
-	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
-	          }
-	        
-	        return null;
+        catch(Exception e) {
+        	
+        	e.getCause();
+        
+        	e.printStackTrace();
+        	
+        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
+        }
+        
+        return null;
 	 }
 	
-	
-	public boolean verify(byte[] plainText, byte[] signature, PublicKey publicKey) throws Exception {
+
+	// verify the signature received
+	public boolean verify (byte[] plainText, byte[] signature, PublicKey publicKey) throws Exception {
 	    
 		Signature publicSignature = Signature.getInstance("SHA256withRSA");
 	    
@@ -1281,31 +1273,18 @@ public class Notary {
 	}
 	
 	
-	
-	/*
- 		* //===========  Encrypted message using the private key of the Notary =================
- 		*	 
- 		* encryptMessage method
- 		* 
- 		* 		Takes the message string as input and encrypts the message.
- 		* 
- 		* 
-	*/
-	
+	// create a digital signature
 	public byte[] createSignature(String s, String nome) throws Exception{
 		
 		PrivateKey prK = getPrivateKey(nome);
 		
 		byte[] sig = sign(s,prK);
 		
-		return sig;
-		
-		
-		
+		return sig;	
 	}
 	
 	
-	
+	// sing the created signature 
 	public byte[] sign(String plainText, PrivateKey privateKey) throws Exception {
 	    
 		Signature privateSignature = Signature.getInstance("SHA256withRSA");

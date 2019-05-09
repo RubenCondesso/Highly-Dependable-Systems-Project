@@ -2,7 +2,7 @@
 import java.net.*;
 import java.io.*;
 import java.util.*;
-
+import java.util.concurrent.ConcurrentHashMap;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -21,9 +21,10 @@ import javax.crypto.*;
 //The Client that can be run as a console
 public class Client  {
 
+
 	/*
 	 *  
-	 *  All variables and objets used in the client side
+	 *  All variables and objets used in the client side to implement the methods of the application
 	 *  
 	*/
 	
@@ -76,10 +77,7 @@ public class Client  {
 	
 	//real timestamp
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
-			
-	//List of goods of the client
-	private static HashMap<String, String> goodsList = new HashMap<String, String>();
-	
+				
 	// socket to talk to other clients
 	private ServerSocket clientSocket;
 	
@@ -88,13 +86,35 @@ public class Client  {
 	
 	// to check if client is running
 	private boolean clientRunning;
-		
+
+
+	/*
+	 *  
+	 *  All variables used to implement a Tolerant Fault Service
+	*/
+
+	// total number of Servers in system
+	private static int numberOfServers;
+
+	//max number of faults that system tolerate
+	private static int maxFaults;
+
+	// Next timestamp to be written
+	private static int wts=0;
+
+	// id of current read operation
+	private static int rid=0;
+
+
 	
 	/*
 	 *  
-	 *  All hashmaps and lists used in the client side
+	 *  Hashmaps and lists used to receive and keep information from the server(s)
 	 *  
 	*/
+
+	//List of goods of the client
+	private static HashMap<String, String> goodsList = new HashMap<String, String>();
 
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
 	private static HashMap<String, Integer> portsList = new HashMap<String, Integer>();
@@ -108,12 +128,28 @@ public class Client  {
 	// list of all output's objects to receive messages to all servers
 	private static ArrayList<ObjectOutputStream> objOutputList = new ArrayList<ObjectOutputStream>();
 	
-	private List<byte[]> list;
+
+	/*
+	 *  
+	 *  Hashmaps used to implement the a Byzantine Fault Tolerant service -> usign (1,N) Byzantine Atomic register
+	 *  
+	*/
+
+	//To store all responses received by the servers -> allresponses: (message, number of votes of that message)
+	private static Map<String, Integer>  serverResponses = new ConcurrentHashMap <String, Integer>(); 
+
+	//List that keeps the writes (servers) that have been acknowledged -> that return a ACK
+	private ConcurrentHashMap <Integer, Boolean> ackList = new ConcurrentHashMap <Integer, Boolean>();
+
+	//List of returned values, for reading
+	private ConcurrentHashMap <String, Pair> readList = new ConcurrentHashMap <String, Pair>();  // String -> message received, Pair -> (Number of votes, Timestamp)
 
 
-
-
-	
+	/*
+	 *  
+	 *  Methods of the application
+	 *  
+	*/
 	public String getClientID() {
 		return clientID;
 	}
@@ -145,11 +181,28 @@ public class Client  {
 		this.clientID = clientID;
 				
 	}
+	
+	
+	// Pair used for Read Operations
+	class Pair {
+
+		// number of votes
+	  	final Integer value;
+
+	  	// latest timestamp
+	  	final LocalDateTime readTimestamp;
+
+	  	Pair(Integer x, LocalDateTime y) {
+
+	  		this.value = x; 
+	  		this.readTimestamp = y;
+      	}
+    }
+	
 
 	/*
 	 * To start the application
-	 */
-	
+	*/
 	public boolean start() {
 		
 		int retryCounter = 0;
@@ -165,8 +218,12 @@ public class Client  {
 		ObjectInputStream sInputTemp;		
 		
 		ObjectOutputStream sOutputToClient;
+		
+		numberOfServers = 3;
 
-
+		// The system follows the following rule: N - f > (N + f)/2; N=Number of Servers, f=Number of faults tolerated
+		maxFaults = numberOfServers / 3;
+	
 		while (retryCounter < threshold) {
 			
 			retryCounter ++ ;
@@ -174,7 +231,7 @@ public class Client  {
 			// try to connect to the server
 			try {	
 
-				for (int l = 1; l < 3; l ++){
+				for (int l = 1; l < 4; l ++){
 
 					socket = null;
 
@@ -192,10 +249,7 @@ public class Client  {
 						// its the unique id that is gone be used to create the RSA keys and Certificate
 						clientConnection = socket.getLocalAddress().getHostAddress().toString().replace("/","") + ":" + socket.getLocalPort();
 
-						firstPort = socket.getLocalPort();
-
-						System.out.println("O id que foi usado para as chaves: " + clientConnection);
-				
+						firstPort = socket.getLocalPort();				
 					}												
 					
 					//10 seconds to message expire
@@ -256,27 +310,22 @@ public class Client  {
 		}
 		
 		return false;
-		
-		
 	}
 
 		
 	// Client wants to see the state of some specific good (available or not available)
-		private static String getStateOfGood (String good){	
-			return good;
-		}
+	private static String getStateOfGood (String good){	
+		return good;
+	}
 			
 	
 	// Client wants to sell some specific good
 	private static String intentionToSell (String good){
-				
 		return good;
-	
 	}
 	
 	//Client wants to buy a specific good from another client
-	private static String buyGood (String good) {
-				
+	private static String buyGood (String good) {		
 		return good;
 	}
 		
@@ -446,7 +495,7 @@ public class Client  {
 			        String time = dateTime.format(formatter);
 			        	
 			        //send message
-					client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0,temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
+			        client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0,temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
 					
 					i=1;
 					
@@ -475,7 +524,7 @@ public class Client  {
 					String temp = "";
 					
 					byte[] tempBytes = temp.getBytes();
-													
+					
 					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));
 					
 					break;
@@ -488,7 +537,12 @@ public class Client  {
 					
 					String msgGoodToServer = scan.nextLine();
 					
-					msgGoodToServer=intentionToSell(msgGoodToServer);
+					msgGoodToServer = intentionToSell(msgGoodToServer);
+
+					// increment the next timestamp to be written
+					wts ++;
+
+					msgGoodToServer = msgGoodToServer + " " + wts;
 							
 					byte[] tempBytes = msgGoodToServer.getBytes();	
 					
@@ -496,27 +550,32 @@ public class Client  {
 					
 			        String time = dateTime.format(formatter);
 									
-					client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));	
+			        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));	
 							
 				}
 				
 				// message to the server to get the state of some good
 				else if(msg.equalsIgnoreCase("STATEGOOD")) {
-								
+					
 					System.out.println("Write the product of which the state you want to check: ");
-								
+					
 					String msgGoodStateToServer = scan.nextLine();
 								
 					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
 					
-					byte[] tempBytes =msgGoodStateToServer.getBytes();
-					
 					LocalDateTime dateTime = LocalDateTime.now();
 					
 			        String time = dateTime.format(formatter);
+
+			        //increment id of the operation
+			        rid ++;
+
+			        msgGoodStateToServer = msgGoodStateToServer + " " + rid;
+
+			        byte[] tempBytes =msgGoodStateToServer.getBytes();
 																				
-					client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));	
-																							
+			        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));	
+																									
 				}
 				
 				// message to the server to buy some good
@@ -585,6 +644,8 @@ public class Client  {
 		public void run() {
 			
 			int contador = 0;
+			
+			String result = null;
 
 			while(true) {
 				
@@ -683,7 +744,7 @@ public class Client  {
 
 							if (v == (objInputList.size()-1)){
 
-								// basta aumentar uma vez o n�mero sequencial, dado que a mesma mensagem vai ser recebida de n servers
+								// basta aumentar uma vez o numero sequencial, dado que a mesma mensagem vai ser recebida de n servers
 								seqNumber = Integer.parseInt(seqDecryt) + 1 ;
 
 							}
@@ -722,10 +783,41 @@ public class Client  {
 
 									}
 									
-									// print the message
-									System.out.println("Mensagem recebida do servidor: " +  msgDecrypt);
+									// check what type of message the client received
+									else {
+
+										// Its a response of a SELL's message -> Write Operation
+										if(message.getType() == 1){
+
+											// process message received from the server
+											result = writeOperation(msgDecrypt, message.getPort());
+
+											// get the final answer
+											if (!result.equals("Not ok")){
+
+												display("The good is now for selling.");
+												
+												System.out.print("> ");
+											}									
+										}
+
+										// Its a response of a STATEGOOD's message -> Read Operation
+										else if(message.getType() == 2){
+
+											// process message received from the server
+											result = readOperation(msgDecrypt, tAtual);
+											
+											// get the final answer
+											if (!result.equals("No")){
+
+												display("Resposta final: " + result);
+												
+												System.out.print("> ");
+											}
+										}
+									}
 									
-									System.out.print("> ");
+								
 									
 								}
 								
@@ -976,15 +1068,12 @@ public class Client  {
 						
 				// send the final message
 				
-				
-				
 				sOutputToServer.writeObject(msgEncrypt);
-				
 				
 				//convert to string
 				String count =  new String(msg.getSeq());
 					
-				// basta aumentar uma vez o n�mero sequencial, dado que a mesma mensagem vai ser enviada para os n servers
+				// basta aumentar uma vez o numero sequencial, dado que a mesma mensagem vai ser enviada para os n servers
 				if (p == 0){
 
 					//increase the sequence number
@@ -1050,6 +1139,193 @@ public class Client  {
 		}
 	}
 	
+	
+
+	/*
+		* //===========  =================
+		*	 
+		* readOperation method
+		* 
+		* 		Takes the the message string, and the timestamp as input and implements a specific couting vote.
+		*
+		*		
+		* 
+	*/
+	public String readOperation(String messageReceived, LocalDateTime timestamp){
+		
+		String[] msgReceived = messageReceived.split(" ");
+
+		String ridTemp = msgReceived[msgReceived.length - 1];
+
+		//get the id of the operation that the server sent
+		int ridReceived=Integer.parseInt(ridTemp);
+
+		String messageOfServer = "";
+
+		for (int q = 0; q < msgReceived.length - 1; q ++){
+
+			if (q == 0){
+
+				messageOfServer = messageOfServer + msgReceived[q];
+			}
+
+			else {
+
+				messageOfServer = messageOfServer + " " + msgReceived[q];
+			}	
+		}
+
+		//check if message has the right rid
+		if (rid == ridReceived){
+
+				processReadMessage(messageOfServer, timestamp);
+
+				String resposta = getResponseReadOperation();
+
+				// We still not have a final response
+				if (resposta.equals("No")){
+
+					return "No";
+				}
+
+				// we have a final response
+				else {
+
+					return resposta;				
+				}
+		}
+
+		// the message does not have the right rid
+		else {
+		}
+
+		return null;
+	}
+
+	/*
+		* //=========== processReadMessage =================
+		*	 
+		* processReadMessage  method
+		* 
+		* 		Takes the message String and the timestamp which the message was received
+		*
+		*		Check if the message was received, if so check if the timestamp received is higher that the one that is on the HashMap, if so increment the number of votes of that message
+		* 
+	*/
+	private void processReadMessage (String msgOfServer, LocalDateTime timestamp){
+
+		// the readList is empty
+		if (readList.size() == 0){
+
+			readList.put(msgOfServer, new Pair(1, timestamp));
+		}
+
+		else {
+
+			for(String tempMsg: readList.keySet()) {
+
+				//this message was already received before
+				if (tempMsg.equals(msgOfServer)){
+
+					long diffRead = ChronoUnit.SECONDS.between(readList.get(tempMsg).readTimestamp, timestamp);
+
+					//the timestamp received is higher -> we have to change it
+					if(diffRead > 0){
+
+						// update the timeStamp and add a vote to that message
+						readList.put(tempMsg, new Pair(readList.get(tempMsg).value + 1, timestamp));
+					}
+
+					// the timestamp is not higher -> add a vote to that message and keep the higher timestamp
+					else {
+
+						readList.put(tempMsg, new Pair(readList.get(tempMsg).value + 1, readList.get(tempMsg).readTimestamp));
+					}
+				}
+
+				// its the first time this message is received -> There was a fault
+				else{
+
+					 readList.put(msgOfServer, new Pair(1, timestamp));	 
+				}
+			}
+		}
+	}
+
+	// get the final response of STATEGOOD call received by all the servers
+	private String getResponseReadOperation () {
+
+		for(String tempMsg: readList.keySet()) {
+
+			if (readList.get(tempMsg).value >= (numberOfServers - maxFaults)){
+
+				return tempMsg;
+			}
+		}			
+
+		return "No";
+	}
+
+
+	/*
+		* //===========  =================
+		*	 
+		* writeOperation method
+		* 
+		* 		Takes the the message string, and the timestamp as input and implements a specific couting vote.
+		*
+		*		
+		* 
+	*/
+	public String writeOperation(String messageReceived, Integer serverPort){
+	
+		String[] msgReceived = messageReceived.split(" ");
+
+		// get the wts received
+		String wtsTemp = msgReceived[1];
+
+		//get the id of the operation that the server sent
+		int wtsReceived=Integer.parseInt(wtsTemp);
+
+		//check if message has the right wts
+		if (wts == wtsReceived){
+
+				if (msgReceived[0].equals("ACK")){
+
+					// put the response and the port of the respective server in the list that keeps the ACK's responses and who answered that
+					ackList.put(serverPort, true);
+				}
+
+				// check condition of the algorithm
+				if (ackList.size() >= (numberOfServers - maxFaults)){
+
+					// reset the list
+					ackList = new ConcurrentHashMap  <Integer, Boolean>();
+
+					return "Ok";
+				}
+		}
+
+		// the message does not have the right wts
+		else {
+		}
+
+		return "Not ok";
+	}
+	
+	
+
+	// =============================================================================================================================================================================
+
+	/*
+		*	 
+		* 		Bellow are standing the methods related to the RSA keys (private and public keys) and to the decryption and encryption of messages exchange on the application 
+		* 
+	*/
+
+	// =============================================================================================================================================================================
+
+
 	
 	
 	/*
