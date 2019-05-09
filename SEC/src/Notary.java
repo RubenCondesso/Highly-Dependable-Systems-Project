@@ -79,6 +79,7 @@ public class Notary {
 	
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
 	private HashMap<String, Integer> portsList = new HashMap<String, Integer>();
+	
 
 
 
@@ -231,7 +232,7 @@ public class Notary {
 	
 	
 	// to broadcast a message to all Clients
-	private synchronized boolean broadcast(String message) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	private synchronized boolean broadcast(String message) throws Exception {
 		
 		// add timestamp to the message
 		String time = sdf.format(new Date());
@@ -318,7 +319,7 @@ public class Notary {
 	}
 
 	// if client sent LOGOUT message to exit
-	synchronized void remove(int id) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	synchronized void remove(int id) throws Exception {
 		
 		String disconnectedClient = "";
 		
@@ -343,7 +344,7 @@ public class Notary {
 	
 	
 	// to error message to a specific client
-	private synchronized boolean sendErrorMsg(String clientName, String errorMsg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	private synchronized boolean sendErrorMsg(String clientName, String errorMsg) throws Exception {
 			
 		for(int t = clientsList.size(); --t >= 0;) {
 				
@@ -553,13 +554,13 @@ public class Notary {
 					String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + realPort;
 												
 					//message received 
-					String mensagemDecryt = decryptMessage(message.getData(), idConnection);
+					String mensagemDecryt = decryptMessage(message.getData(),message.getDataSignature(), idConnection);
 					
 					//sequence number of the message
-					String seqDecryt = decryptMessage(message.getSeq(), idConnection);	
+					String seqDecryt = decryptMessage(message.getSeq(),message.getSeqSignature(), idConnection);	
 					
 					//Get the time of the message received
-					String timeReceived = decryptMessage(message.getLocalDate(), idConnection);
+					String timeReceived = decryptMessage(message.getLocalDate(),message.getDateSignature(), idConnection);
 					
 					//format that is gone be used
 					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -623,6 +624,9 @@ public class Notary {
 								catch (IOException | GeneralSecurityException e1) {
 									
 									e1.printStackTrace();
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
 								}
 												
 								for (Map.Entry<String, String> item : temporaryList.entrySet()) {
@@ -698,6 +702,9 @@ public class Notary {
 										} catch (IOException | GeneralSecurityException  e) {
 											
 											e.printStackTrace();
+										} catch (Exception e) {
+											// TODO Auto-generated catch block
+											e.printStackTrace();
 										}
 								    								
 									}
@@ -712,6 +719,9 @@ public class Notary {
 											
 										} catch (IOException | GeneralSecurityException  e) {
 											
+											e.printStackTrace();
+										} catch (Exception e) {
+											// TODO Auto-generated catch block
 											e.printStackTrace();
 										}
 									}
@@ -728,6 +738,9 @@ public class Notary {
 										
 									} catch (IOException | GeneralSecurityException  e) {
 										
+										e.printStackTrace();
+									} catch (Exception e) {
+										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}
 								}
@@ -767,6 +780,9 @@ public class Notary {
 											} catch (IOException | GeneralSecurityException  e) {
 											
 												e.printStackTrace();
+											} catch (Exception e) {
+												// TODO Auto-generated catch block
+												e.printStackTrace();
 											}
 									    
 									    }						
@@ -787,6 +803,9 @@ public class Notary {
 										
 									
 										e.printStackTrace();
+									} catch (Exception e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
 									}
 									
 								}
@@ -803,6 +822,9 @@ public class Notary {
 									} catch (IOException | GeneralSecurityException  e) {
 										
 									
+										e.printStackTrace();
+									} catch (Exception e) {
+										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}
 									
@@ -853,6 +875,9 @@ public class Notary {
 														
 													} catch (IOException | GeneralSecurityException e) {
 														
+														e.printStackTrace();
+													} catch (Exception e) {
+														// TODO Auto-generated catch block
 														e.printStackTrace();
 													}
 										    	}
@@ -912,6 +937,9 @@ public class Notary {
 															} catch (IOException | GeneralSecurityException  e) {
 																
 																e.printStackTrace();
+															} catch (Exception e1) {
+																// TODO Auto-generated catch block
+																e1.printStackTrace();
 															}
 															
 														}
@@ -927,6 +955,9 @@ public class Notary {
 																															
 														} catch (IOException | GeneralSecurityException e) {
 															
+															e.printStackTrace();
+														} catch (Exception e) {
+															// TODO Auto-generated catch block
 															e.printStackTrace();
 														}
 										    		}
@@ -948,6 +979,9 @@ public class Notary {
 											} catch (IOException | GeneralSecurityException e) {
 											
 												e.printStackTrace();
+											} catch (Exception e) {
+												// TODO Auto-generated catch block
+												e.printStackTrace();
 											}
 											
 										}
@@ -965,6 +999,9 @@ public class Notary {
 										} catch (IOException | GeneralSecurityException e) {
 										
 											e.printStackTrace();
+										} catch (Exception e) {
+											// TODO Auto-generated catch block
+											e.printStackTrace();
 										}
 									
 									}					
@@ -978,6 +1015,9 @@ public class Notary {
 										
 									} catch (IOException | GeneralSecurityException e) {
 									
+										e.printStackTrace();
+									} catch (Exception e) {
+										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}	
 								}
@@ -1012,6 +1052,9 @@ public class Notary {
 			} catch (IOException | GeneralSecurityException e) {
 				
 				e.printStackTrace();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 			close();
 		}
@@ -1038,7 +1081,7 @@ public class Notary {
 		
 
 		// write a String to the Client output stream
-		private boolean writeMsg(String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
+		private boolean writeMsg(String msg) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1065,7 +1108,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(5, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), port, clientsList.size());
+				msgEncrypt = new MessageHandler(5, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1089,7 +1132,7 @@ public class Notary {
 		}
 		
 		// send the portsList list to a client
-		private boolean updateMsg(String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
+		private boolean updateMsg(String msg) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1116,7 +1159,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(6, encryptMessage(msg,notaryConnection), encryptMessage(tempSeq,notaryConnection),  encryptMessage(time,notaryConnection), port, clientsList.size());
+				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1141,7 +1184,7 @@ public class Notary {
 		
 		
 		// write a String to the Client output stream
-		private boolean updateClientsPortsTables(String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException   {
+		private boolean updateClientsPortsTables(String msg) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1187,36 +1230,54 @@ public class Notary {
 	 * 		Takes byte array of the encrypted message as input.
 	 *  
 	*/
-	public String decryptMessage(byte[] encryptedMessage, String id) {
-		
-		ServerDecryptCipher = null;
+	
+	public String decryptMessage(byte[] message,byte[] signature, String id) {
 		
 		try
 	        {	
+			
 						
 				PublicKey pK = readPublicKeyFromFile(id);
-						
-	            ServerDecryptCipher = Cipher.getInstance("RSA");
-	           	            
-	            ServerDecryptCipher.init(Cipher.DECRYPT_MODE, pK);
-	            
-	            byte[] msg = ServerDecryptCipher.doFinal(encryptedMessage);
 	            	            	            
-	            return new String(msg);
-	              
+				boolean ver = verify(message,signature,pK);
+				
+				System.out.println(ver);
+	        	
+	        	if (ver) {
+	        		
+	        		return new String(message);
+	        		
+	        
+	        	
+	        	}
 	        }
 	        
-		catch(Exception e)
-		{
-	        	e.getCause();
+	        catch(Exception e) {
 	        	
+	        	e.getCause();
+	        
 	        	e.printStackTrace();
 	        	
 	        	System.out.println ( "Exception genereated in decryptData method. Exception Name  :"  + e.getMessage() );
-	    }
-		
-		return null;
+	          }
+	        
+	        return null;
+	 }
+	
+	
+	public boolean verify(byte[] plainText, byte[] signature, PublicKey publicKey) throws Exception {
 	    
+		Signature publicSignature = Signature.getInstance("SHA256withRSA");
+	    
+		publicSignature.initVerify(publicKey);
+	    
+		publicSignature.update(plainText);
+
+	    //byte[] signatureBytes = Base64.getDecoder().decode(signature);
+		
+		byte[] signatureBytes = signature;
+
+	    return publicSignature.verify(signatureBytes);
 	}
 	
 	
@@ -1230,22 +1291,32 @@ public class Notary {
  		* 
  		* 
 	*/
-	public byte[] encryptMessage(String s, String nome) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	
+	public byte[] createSignature(String s, String nome) throws Exception{
 		
-		ServerEncryptCipher = null;
-				
-		byte[] cipherText = null;
-				
 		PrivateKey prK = getPrivateKey(nome);
 		
-		ServerEncryptCipher = Cipher.getInstance("RSA");  
-				
-		ServerEncryptCipher.init(Cipher.ENCRYPT_MODE, prK);
+		byte[] sig = sign(s,prK);
 		
-		cipherText = ServerEncryptCipher.doFinal(s.getBytes());
+		return sig;
+		
+		
+		
+	}
 	
-		return cipherText;
-	   
+	
+	
+	public byte[] sign(String plainText, PrivateKey privateKey) throws Exception {
+	    
+		Signature privateSignature = Signature.getInstance("SHA256withRSA");
+	    
+	    privateSignature.initSign(privateKey);
+	    
+	    privateSignature.update(plainText.getBytes());
+
+	    byte[] signature = privateSignature.sign();
+
+	    return signature;
 	}
 	
 	
@@ -1299,6 +1370,8 @@ public class Notary {
 	    String alias = id;
 	    
 	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
+
+	    System.out.println(id);
 	    
 	    PublicKey pubKey = cert.getPublicKey();
 	    

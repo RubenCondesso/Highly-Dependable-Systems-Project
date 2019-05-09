@@ -32,10 +32,16 @@ public class MessageHandler implements Serializable {
 	byte[] seq;
 	
 	byte[] time;
+	
+	byte[] dataSignature;
+	
+	byte[] seqSignature;
+	
+	byte[] dateSignature;
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number) {
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature ) {
 		
 		//Type of message
 		this.type = type;
@@ -57,6 +63,12 @@ public class MessageHandler implements Serializable {
 
 		// number used to do some calculations (in port's numbers)
 		this.number= number;
+		
+		this.dataSignature = dataSignature;
+		
+		this.seqSignature = seqSignature;
+		
+		this.dateSignature = dateSignature;
 
 	}
 
@@ -89,6 +101,21 @@ public class MessageHandler implements Serializable {
 	 int getNumber(){
 
 	 	return number;
+	 }
+	 
+	 byte[] getDataSignature() {
+		 return dataSignature;
+		 
+	 }
+	 
+	 byte[] getSeqSignature() {
+		 return seqSignature;
+		 
+	 }
+	 
+	 byte[] getDateSignature() {
+		 return dateSignature;
+		 
 	 }
 
 	
