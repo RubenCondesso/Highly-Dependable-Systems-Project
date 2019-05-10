@@ -219,10 +219,10 @@ public class Client  {
 		
 		ObjectOutputStream sOutputToClient;
 		
-		numberOfServers = 3;
+		maxFaults = 1;
 
-		// The system follows the following rule: N - f > (N + f)/2; N=Number of Servers, f=Number of faults tolerated
-		maxFaults = numberOfServers / 3;
+		// The system follows the following rule: N > 3f + 1; N=Number of Servers, f=Number of faults tolerated
+		numberOfServers = 3*maxFaults + 1;
 	
 		while (retryCounter < threshold) {
 			
@@ -231,7 +231,7 @@ public class Client  {
 			// try to connect to the server
 			try {	
 
-				for (int l = 1; l < 4; l ++){
+				for (int l = 1; l < numberOfServers + 1; l ++){
 
 					socket = null;
 
@@ -688,6 +688,7 @@ public class Client  {
 								System.out.println("2. Type 'STATEGOOD' to see if some specific good is available for sell");
 								System.out.println("3. Type 'BUYGOOD' to buy a good");
 								System.out.println("4. Type 'LOGOUT' to logoff from application");
+								System.out.print("> ");
 								
 							}
 							
@@ -702,7 +703,7 @@ public class Client  {
 						// update the client's portsList list
 						if (message.getType() == 6){
 													
-							//get the message
+							//get the message and check signature sent by the server 
 							String msgDecrypt = decryptMessage(message.getData(), message.getDataSignature(), message.getPort());
 							
 							//Convert the message received to a HashMap
@@ -753,11 +754,11 @@ public class Client  {
 					
 						else  {
 
-							//get the message
-							String msgDecrypt = decryptMessage(message.getData(),message.getDataSignature(), message.getPort());
-							
-							//Get the time of the message received
-							String timeReceived = decryptMessage(message.getLocalDate(),message.getDateSignature(), message.getPort());
+							//get the message and check signature sent by the server 
+							String msgDecrypt = decryptMessage(message.getData(), message.getDataSignature(), message.getPort());
+
+							//Get the time of the message received and check signature sent by the server 
+							String timeReceived = decryptMessage(message.getLocalDate(), message.getDateSignature(), message.getPort());
 														
 							DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 							
@@ -810,7 +811,7 @@ public class Client  {
 											// get the final answer
 											if (!result.equals("No")){
 
-												display("Resposta final: " + result);
+												display("The good is for sale. " + result);
 												
 												System.out.print("> ");
 											}
@@ -1178,25 +1179,27 @@ public class Client  {
 		//check if message has the right rid
 		if (rid == ridReceived){
 
-				processReadMessage(messageOfServer, timestamp);
+			processReadMessage(messageOfServer, timestamp);
 
-				String resposta = getResponseReadOperation();
+			String resposta = getResponseReadOperation();
 
-				// We still not have a final response
-				if (resposta.equals("No")){
+			// We still not have a final response
+			if (resposta.equals("No")){
 
-					return "No";
-				}
+				return "No";
+			}
 
-				// we have a final response
-				else {
+			// we have a final response
+			else {
 
-					return resposta;				
-				}
+				return resposta;				
+			}
 		}
 
 		// the message does not have the right rid
 		else {
+
+			display("Message received has a wrong rid. ");
 		}
 
 		return null;
@@ -1253,11 +1256,15 @@ public class Client  {
 	}
 
 	// get the final response of STATEGOOD call received by all the servers
-	private String getResponseReadOperation () {
+	private String getResponseReadOperation() {
 
 		for(String tempMsg: readList.keySet()) {
 
-			if (readList.get(tempMsg).value >= (numberOfServers - maxFaults)){
+			// Condition to get a final response using this algorithm
+			if (readList.get(tempMsg).value > (numberOfServers + maxFaults)/2){
+
+				// reset the list
+				readList = new ConcurrentHashMap <String, Pair>();
 
 				return tempMsg;
 			}
@@ -1284,11 +1291,11 @@ public class Client  {
 		// get the wts received
 		String wtsTemp = msgReceived[1];
 
-		//get the id of the operation that the server sent
-		int wtsReceived=Integer.parseInt(wtsTemp);
+		//get the timestamp that the server sent
+		int ts =Integer.parseInt(wtsTemp);
 
-		//check if message has the right wts
-		if (wts == wtsReceived){
+		//check if message has the right timestamp
+		if (wts == ts){
 
 				if (msgReceived[0].equals("ACK")){
 
@@ -1297,7 +1304,7 @@ public class Client  {
 				}
 
 				// check condition of the algorithm
-				if (ackList.size() >= (numberOfServers - maxFaults)){
+				if (ackList.size() > (numberOfServers + maxFaults)/2){
 
 					// reset the list
 					ackList = new ConcurrentHashMap  <Integer, Boolean>();
@@ -1344,10 +1351,7 @@ public class Client  {
 		
 		byte[] sig = sign(s,prK);
 		
-		return sig;
-		
-		
-		
+		return sig;	
 	}
 	
 	public byte[] sign(String plainText, PrivateKey privateKey) throws Exception {
@@ -1386,10 +1390,7 @@ public class Client  {
 	        	
 	        	if (ver) {
 	        		
-	        		return new String(message);
-	        		
-	        
-	        	
+	        		return new String(message);	        	
 	        	}
 	        }
 	        
@@ -1434,19 +1435,14 @@ public class Client  {
 	public String decryptMessageOfClients (byte[] message,byte[] signature, String id) {
 	        
 	        try {
-
 	    			        		    			        	
 	        	PublicKey pK = readPublicKeyFromFile(id);
-	        	
 	        	
 	        	boolean ver = verify(message,signature,pK);
 	        	
 	        	if (ver) {
 	        		
 	        		return new String(message);
-	        		
-	        
-	        	
 	        	}
 	        }
 	        

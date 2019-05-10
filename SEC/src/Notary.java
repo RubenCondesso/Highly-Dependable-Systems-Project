@@ -359,8 +359,7 @@ public class Notary {
 			}			
 		}
 			
-		return true;
-				
+		return true;		
 	}
 	
 	
@@ -1087,7 +1086,7 @@ public class Notary {
 				try {
 					
 					//secure the current message
-					msgEncrypt = new MessageHandler(5, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
 				
 				} catch (Exception e) {
 				
@@ -1236,7 +1235,7 @@ public class Notary {
 			PublicKey pK = readPublicKeyFromFile(id);
             	            	            
 			boolean ver = verify(message,signature,pK);
-        	
+
         	if (ver) {
         		
         		return new String(message);	        	
@@ -1324,7 +1323,6 @@ public class Notary {
 	    Key key = keystore.getKey(alias, "SEC".toCharArray());
 	   
 	    return (PrivateKey) key;
-	 
 	}
 
 	
@@ -1349,12 +1347,9 @@ public class Notary {
 	    String alias = id;
 	    
 	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
-
-	    System.out.println(id);
 	    
 	    PublicKey pubKey = cert.getPublicKey();
 	    
-	    return pubKey;
-		
+	    return pubKey;	
 	}	
 }
