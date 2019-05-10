@@ -776,7 +776,6 @@ public class Client  {
 								// check if the message has a right sequence number
 								if (seqNumber <= Integer.parseInt(seqDecryt)){
 
-
 									if (v == (objInputList.size()-1)){
 
 										// basta aumentar uma vez o n�mero sequencial, dado que a mesma mensagem vai ser enviada para os n servers

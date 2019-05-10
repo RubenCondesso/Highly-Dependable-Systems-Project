@@ -83,6 +83,9 @@ public class Notary {
 	
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
 	private ConcurrentHashMap <String, Integer> portsList = new ConcurrentHashMap <String, Integer>();
+
+	// HashMap to keep the timestamps received by the clients -> <idConncection of client that sent the message, timestamp received>
+	private ConcurrentHashMap <String, LocalDateTime> timestampList = new ConcurrentHashMap <String, LocalDateTime>();
 	
 
 
@@ -361,6 +364,26 @@ public class Notary {
 			
 		return true;		
 	}
+
+
+	// check if timestamp received by the client is valid
+	private boolean checkTimestamp (String idLigacao, LocalDateTime timestampReceived){
+
+		for (Map.Entry<String, LocalDateTime> time : timestampList.entrySet()){
+
+			if(time.getKey().equals(idLigacao)){
+
+				long diffTimestamp = ChronoUnit.SECONDS.between(time.getValue(), timestampReceived);
+
+				if(diffTimestamp > 0){
+
+					return true;
+				}
+			}
+		}		
+
+		return false;
+	}
 	
 	
 	/*
@@ -581,6 +604,7 @@ public class Notary {
 						if (seqNumber <= Integer.parseInt(seqDecryt)){
 							
 							seqNumber = Integer.parseInt(seqDecryt) + 1;
+
 							
 							// different actions based on type message
 							switch(message.getType()) {
@@ -616,6 +640,8 @@ public class Notary {
 								try {
 									
 									updateClientsPortsTables(portsList.toString());
+
+									timestampList.put(idConnection, localDateReceived);
 									
 								} catch (Exception e) {
 
@@ -679,60 +705,86 @@ public class Notary {
 								String[] msgReceivedSell = mensagemDecryt.split(" ");
 							
 								display("The client " + clientID + " want to sell the following good: " + msgReceivedSell[0]);
-								
-								// Check if the good exists on the application 
-								if(checkGood(msgReceivedSell[0]) == true){
-									
-									//check if the clientID is the owner of the good, and the good exists on the application
-									if (checkGoodToSell(clientID, msgReceivedSell[0]) == true){
+
+								// the timestamp received is older that the last one received by that client -> don't accept message
+								if(checkTimestamp(idConnection, localDateReceived) == false){
+
+									display("The good is not for sale. ");
 										
-										//put the good on the list of products to sell
-								    	clientsGoodsToSell.put(clientID, msgReceivedSell[0]);
-								    	
-								    	display("The good is now for sale.");
-								    	
-								    	try {
-								    		
-								    		//All Conditions passed -> Return a ACK to the Client + the wts received
-											writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1]);
-											
-										} catch (IOException | GeneralSecurityException  e) {
-											
-											e.printStackTrace();
-										}
-								    								
-									}
-									
-									else{
-										
-										display("The client is not the owner of the good. ");
-										
-										try {
-																						
-											sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1]);
-											
-										} catch (IOException | GeneralSecurityException  e) {
-											
-											e.printStackTrace();
-										}
-									}
-									
-								}
-								
-								else {
-									
-									display("The good was not found in the clients goods list. ");
-									
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1]);
-										
+										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid ." +  " " + msgReceivedSell[1]);
+																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
 										e.printStackTrace();
 									}
 								}
-							
+
+								// the timestamp received is newer that the last onde received by that client -> accept message
+								else {
+
+									// Check if the good exists on the application 
+									if(checkGood(msgReceivedSell[0]) == true){
+										
+										//check if the clientID is the owner of the good, and the good exists on the application
+										if (checkGoodToSell(clientID, msgReceivedSell[0]) == true){
+											
+											//put the good on the list of products to sell
+									    	clientsGoodsToSell.put(clientID, msgReceivedSell[0]);
+									    	
+									    	display("The good is now for sale.");
+									    	
+									    	try {
+									    		
+									    		//All Conditions passed -> Return a ACK to the Client + the wts received
+												writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1]);
+
+												timestampList.put(idConnection, localDateReceived);
+												
+											} catch (IOException | GeneralSecurityException  e) {
+												
+												e.printStackTrace();
+											}
+									    								
+										}
+										
+										else{
+											
+											display("The client is not the owner of the good. ");
+											
+											try {
+																							
+												sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1]);
+
+												timestampList.put(idConnection, localDateReceived);
+												
+											} catch (IOException | GeneralSecurityException  e) {
+												
+												e.printStackTrace();
+											}
+										}
+										
+									}
+									
+									else {
+										
+										display("The good was not found in the clients goods list. ");
+										
+										try {
+																											
+											sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1]);
+
+											timestampList.put(idConnection, localDateReceived);
+											
+										} catch (IOException | GeneralSecurityException  e) {
+											
+											e.printStackTrace();
+										}
+									}
+								}
+								
+								
 								break;
 													
 				
@@ -746,70 +798,95 @@ public class Notary {
 								String[] msgReceivedState = mensagemDecryt.split(" ");
 
 								display("The client " + clientID + " want to check the state of the following good: " + msgReceivedState[0]);
-								
-								// Check if the good exists on the application 
-								if(checkGood(msgReceivedState[0]) == true){
-									
-									l = 1;
-									
-									for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-										
-										String key = item.getKey();
-									    String value = item.getValue();
-									    							    									    
-									    //Verify if the requested good is on sale 
-									    if (value.equals(msgReceivedState[0]) && (s != 1)){
-									    	
-									    	s=1;
-									    	
-									    	display("The good is for sale.");
-									    	
-									    	try {
-									    		
-												writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1]);
-												
-											} catch (IOException | GeneralSecurityException  e) {
-											
-												e.printStackTrace();
-											}   
-									    }						
-									}	
-								}
-							
-								//This good is not for sale   
-								if(s == 0 && l == 1){
-									
+
+								// the timestamp received is older that the last one received by that client -> don't accept message
+								if(checkTimestamp(idConnection, localDateReceived) == false){
+
 									display("The good is not for sale. ");
-									
+										
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1]);
+										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid" +  " " + msgReceivedState[1]);
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
 										e.printStackTrace();
 									}
 								}
-								
-								//The good does not exist on the application.
-								else if(l == 0){
-									
-									display("The good does not exist on the application. ");
-									
-									try {
-																									
-										sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1]);
-																		
-									} catch (IOException | GeneralSecurityException  e) {
+
+								// the timestamp received is newer that the last onde received by that client -> accept message
+								else {
+
+									// Check if the good exists on the application 
+									if(checkGood(msgReceivedState[0]) == true){
 										
-									
-										e.printStackTrace();
+										l = 1;
+										
+										for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+											
+											String key = item.getKey();
+										    String value = item.getValue();
+										    							    									    
+										    //Verify if the requested good is on sale 
+										    if (value.equals(msgReceivedState[0]) && (s != 1)){
+										    	
+										    	s=1;
+										    	
+										    	display("The good is for sale.");
+										    	
+										    	try {
+										    		
+													writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1]);
+
+													timestampList.put(idConnection, localDateReceived);
+													
+												} catch (IOException | GeneralSecurityException  e) {
+												
+													e.printStackTrace();
+												}   
+										    }						
+										}	
 									}
-								}
 								
+									//This good is not for sale   
+									if(s == 0 && l == 1){
+										
+										display("The good is not for sale. ");
+										
+										try {
+																											
+											sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1]);
+
+											timestampList.put(idConnection, localDateReceived);
+																				
+										} catch (IOException | GeneralSecurityException  e) {
+											
+											e.printStackTrace();
+										}
+									}
+									
+									//The good does not exist on the application.
+									else if(l == 0){
+										
+										display("The good does not exist on the application. ");
+										
+										try {
+																										
+											sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1]);
+
+											timestampList.put(idConnection, localDateReceived);
+																			
+										} catch (IOException | GeneralSecurityException  e) {
+											
+										
+											e.printStackTrace();
+										}
+									}									
+								}
+
 								break;
 								
-							
+								
 							case MessageHandler.TRANSFERGOOD:
 								
 								String[] m = (mensagemDecryt.toString()).split(" ", 3);
@@ -847,6 +924,8 @@ public class Notary {
 													try {
 														
 														sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself.");		
+
+														timestampList.put(idConnection, localDateReceived);
 														
 													} catch (IOException | GeneralSecurityException e) {
 														
@@ -879,6 +958,8 @@ public class Notary {
 																
 																//inform the seller about the outcome of the transfer
 													    		writeMsg(4, "Yes. The transfer was successful.");
+
+													    		timestampList.put(idConnection, localDateReceived);
 													    													
 																//inform the buyer about the outcome of the transfer
 													    		ct1.writeMsg(4, "Yes. The transfer was successful.");		
@@ -943,6 +1024,8 @@ public class Notary {
 										    			try {
 															
 															sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application.");
+
+															timestampList.put(idConnection, localDateReceived);
 																															
 														} catch (IOException | GeneralSecurityException e) {
 															
@@ -963,6 +1046,8 @@ public class Notary {
 											try {
 																								
 												sendErrorMsg(message.getType(), clientID, "No. The good is not for sale.");
+
+												timestampList.put(idConnection, localDateReceived);
 																					
 											} catch (IOException | GeneralSecurityException e) {
 											
@@ -980,6 +1065,8 @@ public class Notary {
 										try {
 																						
 											sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application. ");
+
+											timestampList.put(idConnection, localDateReceived);
 											
 										} catch (IOException | GeneralSecurityException e) {
 										
@@ -994,6 +1081,8 @@ public class Notary {
 									try {
 										
 										sendErrorMsg(message.getType(), clientID, "No. Wrong Input. ");
+
+										timestampList.put(idConnection, localDateReceived);
 										
 									} catch (IOException | GeneralSecurityException e) {
 									
