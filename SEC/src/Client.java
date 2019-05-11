@@ -37,6 +37,9 @@ public class Client  {
 	// port of server's socket
 	private int port;
 
+	// port of the buyer connection in TransferGood/BuyGood
+	private static int tempPort = 0;
+
 	// port used to originate the name used to create RSA keys
 	private int firstPort;
 		
@@ -100,10 +103,22 @@ public class Client  {
 	private static int maxFaults;
 
 	// Next timestamp to be written
-	private static int wts=0;
+	private static int wts = 0;
 
 	// id of current read operation
-	private static int rid=0;
+	private static int rid = 0;
+
+	//number of reads counted
+	private static int nReads = 0;
+
+	// number of writes received by the servers
+	private static int nAck = 0;
+
+	// the value with the highest timestamp of the readList
+	private static String maxValue = null;
+
+	// the highest timestamp of the readList
+	private static LocalDateTime maxTimestamp = null;
 
 
 	
@@ -142,7 +157,7 @@ public class Client  {
 	private ConcurrentHashMap <Integer, Boolean> ackList = new ConcurrentHashMap <Integer, Boolean>();
 
 	//List of returned values, for reading
-	private ConcurrentHashMap <String, Pair> readList = new ConcurrentHashMap <String, Pair>();  // String -> message received, Pair -> (Number of votes, Timestamp)
+	private ConcurrentHashMap <String, Pair> readList = new ConcurrentHashMap <String, Pair>();  // String -> Server Name, Pair -> (message received, Timestamp)
 
 
 	/*
@@ -187,12 +202,12 @@ public class Client  {
 	class Pair {
 
 		// number of votes
-	  	final Integer value;
+	  	final String value;
 
 	  	// latest timestamp
 	  	final LocalDateTime readTimestamp;
 
-	  	Pair(Integer x, LocalDateTime y) {
+	  	Pair(String x, LocalDateTime y) {
 
 	  		this.value = x; 
 	  		this.readTimestamp = y;
@@ -477,7 +492,7 @@ public class Client  {
 				
 				if (msg.equalsIgnoreCase("ENTER")){
 					
-					
+					// put the goods on the list of goods
 					setGoodsClient(clientID + "Maca", clientID);
 					setGoodsClient(clientID + "Banana", clientID);
 					setGoodsClient(clientID + "Kiwi", clientID);
@@ -498,17 +513,13 @@ public class Client  {
 			        client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0,temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
 					
 					i=1;
-					
 				}
 				
 				else{
 					
-					System.out.println("Wrong input! 1. Type 'ENTER' to enter in the application");
-					
-				}
-				
+					System.out.println("Wrong input! 1. Type 'ENTER' to enter in the application");	
+				}	
 			}
-			
 			
 			else {
 				
@@ -550,8 +561,7 @@ public class Client  {
 					
 			        String time = dateTime.format(formatter);
 									
-			        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));	
-							
+			        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));					
 				}
 				
 				// message to the server to get the state of some good
@@ -574,8 +584,7 @@ public class Client  {
 
 			        byte[] tempBytes =msgGoodStateToServer.getBytes();
 																				
-			        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));	
-																									
+			        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));																						
 				}
 				
 				// message to the server to buy some good
@@ -607,11 +616,12 @@ public class Client  {
 			        	if (item.getKey().equals(w[0])){
 			        		
 			        		// port of the seller
-			        		Integer tempPort = item.getValue();
+			        		tempPort = item.getValue();
 			        					        					        					        		
-			        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));
-			        	}
+			        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort, clientPort,tempBytes, tempSeq.getBytes(), time.getBytes()));
 			        	
+			        		tempPort = 0;
+			        	}	
 			        }																					
 				}
 								
@@ -619,12 +629,9 @@ public class Client  {
 				else {
 					
 					//Wrong Input from the Client
-					System.out.println("Wrong input! Try again please. ");
-					
+					System.out.println("Wrong input! Try again please.");
 				}
-				
-			}
-			
+			}	
 		}
 		
 		// close resource
@@ -689,15 +696,12 @@ public class Client  {
 								System.out.println("3. Type 'BUYGOOD' to buy a good");
 								System.out.println("4. Type 'LOGOUT' to logoff from application");
 								System.out.print("> ");
-								
 							}
 							
 							else {
 								
 								display("The Message hasn't the right sequence number. Won't accept it");
 							}
-							
-					
 						}
 					
 						// update the client's portsList list
@@ -713,8 +717,8 @@ public class Client  {
 									
 							Map <String,String> map = new HashMap<>();               
 		
-							for(String pair : keyValuePairs)                        //iterate over the pairs
-							{
+							for(String pair : keyValuePairs){                        //iterate over the pairs
+							
 								String[] entry = pair.split("=");                   //split the pairs to get key and value 
 							    map.put(entry[0].trim(), entry[1].trim());          //add them to the hashmap and trim whitespaces
 							}
@@ -747,107 +751,189 @@ public class Client  {
 
 								// basta aumentar uma vez o numero sequencial, dado que a mesma mensagem vai ser recebida de n servers
 								seqNumber = Integer.parseInt(seqDecryt) + 1 ;
-
 							}
-
 						}
 					
-						else  {
+						else {
 
 							//get the message and check signature sent by the server 
 							String msgDecrypt = decryptMessage(message.getData(), message.getDataSignature(), message.getPort());
 
 							//Get the time of the message received and check signature sent by the server 
 							String timeReceived = decryptMessage(message.getLocalDate(), message.getDateSignature(), message.getPort());
-														
-							DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+							// signature received by the server is valid
+							if (!(msgDecrypt == null) && !(timeReceived == null)){
+
+								DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 							
-							//convert to LocalDateTime type
-							LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
-							
-							//current time
-							LocalDateTime tAtual = LocalDateTime.now();
-											
-							long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
-												
-							//check if the message's time has expired 
-							if (diff < expireTime ){
+								//convert to LocalDateTime type
+								LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
 								
-								// check if the message has a right sequence number
-								if (seqNumber <= Integer.parseInt(seqDecryt)){
-
-									if (v == (objInputList.size()-1)){
-
-										// basta aumentar uma vez o n�mero sequencial, dado que a mesma mensagem vai ser enviada para os n servers
-										seqNumber = Integer.parseInt(seqDecryt) + 1 ;
-
-									}
+								//current time
+								LocalDateTime tAtual = LocalDateTime.now();
+												
+								long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
+													
+								//check if the message's time has expired 
+								if (diff < expireTime ){
 									
-									// check what type of message the client received
-									else {
+									// check if the message has a right sequence number
+									if (seqNumber <= Integer.parseInt(seqDecryt)){
 
-										// Its a response of a SELL's message -> Write Operation
-										if(message.getType() == 1){
+										if (v == (objInputList.size()-1)){
 
-											// process message received from the server
-											result = writeOperation(msgDecrypt, message.getPort());
+											// basta aumentar uma vez o n�mero sequencial, dado que a mesma mensagem vai ser enviada para os n servers
+											seqNumber = Integer.parseInt(seqDecryt) + 1 ;
 
-											// get the final answer
-											if (!result.equals("Not ok")){
-
-												display("The good is now for selling.");
-												
-												System.out.print("> ");
-											}									
 										}
+										
+										// check what type of message the client received
+										else {
 
-										// Its a response of a STATEGOOD's message -> Read Operation
-										else if(message.getType() == 2){
+											// Its a response of a SELL's message -> Write Operation
+											if(message.getType() == 1){
 
-											// process message received from the server
-											result = readOperation(msgDecrypt, tAtual);
-											
-											// get the final answer
-											if (!result.equals("No")){
+												// process message received from the server
+												result = writeOperation(msgDecrypt, message.getPort());
 
-												display("The good is for sale. " + result);
-												
-												System.out.print("> ");
+												// get the final answer
+												if (!result.equals("Not ok")){
+
+													display("The good is now for selling.");
+
+													// reset acks's number
+													nAck = 0;
+										
+												}
+
+												//the operation was not successful
+												else if(result.equals("Not ok") && (nAck == numberOfServers)){
+
+													display("The operation of selling the good was not successful.");
+
+													// reset acks's number
+													nAck = 0;
+												}									
+											}
+
+											// Its a response of a STATEGOOD's message -> Read Operation
+											else if(message.getType() == 2){
+
+												// lets pretend that the server name its his port number as a string 
+												String serverName = String.valueOf(message.getPort());
+
+												// process message received from the server
+												result = readOperation(msgDecrypt, tAtual, serverName);
+
+												// get the final answer
+												if (!(result == null)){
+
+													display(result);
+
+													// reset the number of readings made
+													nReads = 0;
+
+													// reset the highest timestamp of the readList
+													maxTimestamp = null;
+
+													// reset the value returned to the client
+													maxValue = null;
+
+													// reset the list
+													readList = new ConcurrentHashMap <String, Pair>();
+												}
+											}
+
+											// Its a response of a TRANSFERGOOD's message -> Write Operation
+											else if(message.getType() == 4){
+
+												// process message received from the server
+												result = writeOperation(msgDecrypt, message.getPort());
+
+												// get the final answer
+												if (!result.equals("Not ok")){
+
+													display("The transfer was a success.");
+
+													String success = "The transfer was a success.";
+
+													// reset acks's number
+													nAck = 0;
+
+													try {
+
+														tempPort = 1500 + message.getNumber();
+
+														System.out.println("Porto do buyer: " + tempPort);
+														
+														// inform the buyer that the transfer was a success
+														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, success.getBytes(), null, null, tempPort, 0, null, null, null));
+													
+														tempPort = 0;
+
+													}
+													catch(Exception e) {
+														
+														display("Exception in sending message to the buyer. " + e);
+													}	
+												}
+
+												//the operation was not successful
+												else if(result.equals("Not ok") && (nAck == numberOfServers)){
+
+													display("The operation of transfer the good was not successful.");
+
+													String fail = "The transfer was not a success.";
+
+													// reset acks's number
+													nAck = 0;
+
+													try {
+														
+														tempPort = 1500 + message.getNumber();
+
+														// inform the buyer that the transfer was not a success
+														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, fail.getBytes(), null, null, tempPort, 0, null, null, null));
+													
+														tempPort = 0;
+													}
+
+													catch(Exception e) {
+														
+														display("Exception in sending message to the buyer. " + e);
+													}	
+												}										
 											}
 										}
 									}
 									
-								
-									
+									else {
+										
+										display("The Message hasn't the right sequence number. Won't accept it");
+									}
 								}
 								
-								else {
+								//the message has expired
+								else{
 									
-									display("The Message hasn't the right sequence number. Won't accept it");
+									display("The Message has expired. Won't accept it");
 								}
-								
-							
 							}
-							
-							//the message has expired
-							else{
-								
-								display("The Message has expired. Won't accept it");
+
+							else {
+
+								display("Invalid signature. ");
 							}
-						
 						}
-
-
-					}
-																		
+					}													
 				}
 				
 				catch(IOException e) {
 					
-					display(notif + "Can�t connect to server. Connection was closed. " + e + notif);
+					display(notif + "Cannot connect to server. Connection was closed. " + e + notif);
 					
-					break;
-										
+					break;						
 				}
 				
 				catch(ClassNotFoundException e2) {
@@ -970,33 +1056,60 @@ public class Client  {
 					
 					// message received from the client
 					messageClient = (MessageHandler) sInputClient.readObject(); 
-					
-					// get the id connection of that the client that sent the message							
-					String idClientReceived= clientToClientSocket.getLocalAddress().getHostAddress().toString() + ":" + messageClient.getPort();
-					
-					//get the message received from the client
-					String msgDecryptOfClient = decryptMessageOfClients(messageClient.getData(),messageClient.getDataSignature(), idClientReceived);
-										
-					LocalDateTime dateTime = LocalDateTime.now();
-					
-					DateTimeFormatter formatter1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-					
-			        String time = dateTime.format(formatter1);
-			        
-			        String tempSeq = Integer.toString(seqNumber);
 
-					try {
-												
-						sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes(), messageClient.getPort(), 0,msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes()));
+					// its a message from a possible buyer
+					if(messageClient.getType() == 3){
+
+						// get the id connection of that the client that sent the message							
+						String idClientReceived= clientToClientSocket.getLocalAddress().getHostAddress().toString() + ":" + messageClient.getPort();
 						
-					} catch (UnrecoverableKeyException | KeyStoreException | CertificateException e) {
+						//get the message received from the client
+						String msgDecryptOfClient = decryptMessageOfClients(messageClient.getData(),messageClient.getDataSignature(), idClientReceived);
+
+						// increment the next timestamp to be written
+						wts ++;
+
+						msgDecryptOfClient = msgDecryptOfClient + " " + wts;
+											
+						LocalDateTime dateTime = LocalDateTime.now();
 						
-						e.printStackTrace();
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						DateTimeFormatter formatter1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+						
+				        String time = dateTime.format(formatter1);
+				        
+				        String tempSeq = Integer.toString(seqNumber);
+
+						String[] msgReceivedByClient = msgDecryptOfClient.split(" ");	       
+
+				        // print the message received by a client (a possible buyer)
+				        display("The buyer: " + msgReceivedByClient[0] + " wants to buy from you the following good: " + msgReceivedByClient[1]);
+
+						try {
+													
+							sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes(), messageClient.getPort(), 0, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes()));
+
+						} catch (UnrecoverableKeyException | KeyStoreException | CertificateException e) {
+							
+							e.printStackTrace();
+
+						} catch (Exception e) {
+						
+							e.printStackTrace();
+						}
 					}
-										
+
+					// the seller will inform this client about the outcome of the transfer
+					else if (messageClient.getType() == 4){
+
+						// get the id connection of that the client that sent the message							
+						String idClientReceived= clientToClientSocket.getLocalAddress().getHostAddress().toString() + ":" + messageClient.getPort();
+						
+						//get the message received from the client
+						String msgDecryptOfClient = decryptMessageOfClients(messageClient.getData(),messageClient.getDataSignature(), idClientReceived);
+
+						//response of the seller
+						display(msgDecryptOfClient);							
+					}										
 				}
 				
 				catch (IOException e) {
@@ -1110,6 +1223,8 @@ public class Client  {
 		ObjectOutputStream sOutputToClient;			
 		
 		int port = msg.getPort();
+
+		System.out.println("Vou enviar a mensagem para o porto: " + port);
 		
 		String clientAddress = "localhost";
 		
@@ -1146,12 +1261,14 @@ public class Client  {
 		*	 
 		* readOperation method
 		* 
-		* 		Takes the the message string, and the timestamp as input and implements a specific couting vote.
+		* 		Takes the the message string, the timestamp of the message received and the server who sent it as input 
 		*
-		*		
-		* 
+		*		Add the message and the respective timestamp to the readList
+		*
+		*		Check if the client has enough readings made -> if so, return the value with the highest timestamp of the readList
+		*
 	*/
-	public String readOperation(String messageReceived, LocalDateTime timestamp){
+	public String readOperation(String messageReceived, LocalDateTime timestamp, String serverName){
 		
 		String[] msgReceived = messageReceived.split(" ");
 
@@ -1159,6 +1276,8 @@ public class Client  {
 
 		//get the id of the operation that the server sent
 		int ridReceived=Integer.parseInt(ridTemp);
+
+		nReads ++;
 
 		String messageOfServer = "";
 
@@ -1178,98 +1297,44 @@ public class Client  {
 		//check if message has the right rid
 		if (rid == ridReceived){
 
-			processReadMessage(messageOfServer, timestamp);
+			// add the pair received to the readList
+			readList.put(serverName, new Pair(messageOfServer, timestamp));
 
-			String resposta = getResponseReadOperation();
+			// when the reader obtains VALUE messages from more than (N + f)/2 processes, 
+			// at least one of these message originates from a correct process and contains wts, v, and a valid signature from p
+			if (nReads > (numberOfServers + maxFaults)/2){
 
-			// We still not have a final response
-			if (resposta.equals("No")){
+				// to get the higher timestamp of the readList (in other words, the last response received)
+				for(String tempMsg: readList.keySet()) {
 
-				return "No";
-			}
+					if (maxTimestamp == null){
 
-			// we have a final response
-			else {
+						maxTimestamp = readList.get(tempMsg).readTimestamp;
 
-				return resposta;				
-			}
+						maxValue = readList.get(tempMsg).value;
+					}
+
+					if(maxTimestamp.isBefore(readList.get(tempMsg).readTimestamp)){
+
+						maxTimestamp = readList.get(tempMsg).readTimestamp;
+
+						maxValue = readList.get(tempMsg).value;	
+					}
+				}
+
+				return maxValue;
+			}			
 		}
 
 		// the message does not have the right rid
 		else {
 
-			display("Message received has a wrong rid. ");
+			display("Message received has a wrong rid.");
+
+			return null;
 		}
 
 		return null;
-	}
-
-	/*
-		* //=========== processReadMessage =================
-		*	 
-		* processReadMessage  method
-		* 
-		* 		Takes the message String and the timestamp which the message was received
-		*
-		*		Check if the message was received, if so check if the timestamp received is higher that the one that is on the HashMap, if so increment the number of votes of that message
-		* 
-	*/
-	private void processReadMessage (String msgOfServer, LocalDateTime timestamp){
-
-		// the readList is empty
-		if (readList.size() == 0){
-
-			readList.put(msgOfServer, new Pair(1, timestamp));
-		}
-
-		else {
-
-			for(String tempMsg: readList.keySet()) {
-
-				//this message was already received before
-				if (tempMsg.equals(msgOfServer)){
-
-					long diffRead = ChronoUnit.SECONDS.between(readList.get(tempMsg).readTimestamp, timestamp);
-
-					//the timestamp received is higher -> we have to change it
-					if(diffRead > 0){
-
-						// update the timeStamp and add a vote to that message
-						readList.put(tempMsg, new Pair(readList.get(tempMsg).value + 1, timestamp));
-					}
-
-					// the timestamp is not higher -> add a vote to that message and keep the higher timestamp
-					else {
-
-						readList.put(tempMsg, new Pair(readList.get(tempMsg).value + 1, readList.get(tempMsg).readTimestamp));
-					}
-				}
-
-				// its the first time this message is received -> There was a fault
-				else{
-
-					 readList.put(msgOfServer, new Pair(1, timestamp));	 
-				}
-			}
-		}
-	}
-
-	// get the final response of STATEGOOD call received by all the servers
-	private String getResponseReadOperation() {
-
-		for(String tempMsg: readList.keySet()) {
-
-			// Condition to get a final response using this algorithm
-			if (readList.get(tempMsg).value > (numberOfServers + maxFaults)/2){
-
-				// reset the list
-				readList = new ConcurrentHashMap <String, Pair>();
-
-				return tempMsg;
-			}
-		}			
-
-		return "No";
 	}
 
 
@@ -1293,6 +1358,8 @@ public class Client  {
 		//get the timestamp that the server sent
 		int ts =Integer.parseInt(wtsTemp);
 
+		nAck ++;
+
 		//check if message has the right timestamp
 		if (wts == ts){
 
@@ -1306,14 +1373,10 @@ public class Client  {
 				if (ackList.size() > (numberOfServers + maxFaults)/2){
 
 					// reset the list
-					ackList = new ConcurrentHashMap  <Integer, Boolean>();
+					ackList = new ConcurrentHashMap <Integer, Boolean>();
 
 					return "Ok";
 				}
-		}
-
-		// the message does not have the right wts
-		else {
 		}
 
 		return "Not ok";

@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -506,7 +507,6 @@ public class Notary {
 		}
 		
 
-
 		//check if the good is on the application
 		public boolean checkGood(String good) {
 			
@@ -517,8 +517,7 @@ public class Notary {
 				if (key.equals(good)){
 					
 					return true;
-				}
-				
+				}	
 			}
 	
 			return false;
@@ -593,12 +592,9 @@ public class Notary {
 					
 					//current time
 					LocalDateTime tAtual = LocalDateTime.now();        
-			        
-					//do the difference between times
-					long diff = ChronoUnit.SECONDS.between(localDateReceived, tAtual);
-					
+			      					
 					//check if the message's time has expired 
-					if (diff < expireTime ){
+					if (Duration.between(tAtual, localDateReceived).getSeconds() < expireTime ){
 						
 						//Verify if message has a right sequence number
 						if (seqNumber <= Integer.parseInt(seqDecryt)){
@@ -889,9 +885,9 @@ public class Notary {
 								
 							case MessageHandler.TRANSFERGOOD:
 								
-								String[] m = (mensagemDecryt.toString()).split(" ", 3);
+								String[] m = (mensagemDecryt.toString()).split(" ");
 																						
-								if (m.length == 2){
+								if (m.length == 3){
 																																				
 									//The BuyerID
 									String buyer = m[0];
@@ -923,7 +919,7 @@ public class Notary {
 										    		
 													try {
 														
-														sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself.");		
+														sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself." + " " + m[2]);		
 
 														timestampList.put(idConnection, localDateReceived);
 														
@@ -954,16 +950,13 @@ public class Notary {
 																
 																clientsGoodsToSell.remove(key, value);	
 																																
-																display("The transfer was successful. ");
+																display("The transfer was successful.");
 																
-																//inform the seller about the outcome of the transfer
-													    		writeMsg(4, "Yes. The transfer was successful.");
+																//inform the seller about the outcome of the transfer + send the wts received
+													    		writeMsg(4, "ACK" + " " + m[2]);
 
 													    		timestampList.put(idConnection, localDateReceived);
-													    													
-																//inform the buyer about the outcome of the transfer
-													    		ct1.writeMsg(4, "Yes. The transfer was successful.");		
-																																
+													    																																												
 															    try {
 																
 															    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
@@ -1023,7 +1016,7 @@ public class Notary {
 										    			
 										    			try {
 															
-															sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application.");
+															sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application." + " " + m[2]);
 
 															timestampList.put(idConnection, localDateReceived);
 																															
@@ -1045,7 +1038,7 @@ public class Notary {
 											
 											try {
 																								
-												sendErrorMsg(message.getType(), clientID, "No. The good is not for sale.");
+												sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." + " " + m[2]);
 
 												timestampList.put(idConnection, localDateReceived);
 																					
@@ -1425,7 +1418,7 @@ public class Notary {
 		* 
 		* 
 	*/
-	PublicKey readPublicKeyFromFile(String id) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
+	PublicKey readPublicKeyFromFile(String id) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException{ //RevokedCertificateException  {
 		
 		java.io.FileInputStream is = new java.io.FileInputStream("publicKeys");
 		
@@ -1436,6 +1429,16 @@ public class Notary {
 	    String alias = id;
 	    
 	    X509Certificate cert = (X509Certificate) keystore.getCertificate(alias);
+
+	    // Only the first Server uses the Portuguese CC
+	    //if(port == 1500){
+
+	    	// validate certificate using the EIDLib_PKCS11 interface
+	    //if (!EIDLib_PKCS11.isCertificateValid((X509Certificate) cert)) {
+
+          //  throw new RevokedCertificateException("Certificate has been revoked by its certification authority");
+        //}
+	    //}
 	    
 	    PublicKey pubKey = cert.getPublicKey();
 	    
