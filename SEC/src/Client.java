@@ -800,7 +800,7 @@ public class Client  {
 												// get the final answer
 												if (!result.equals("Not ok")){
 
-													display("The good is now for selling.");
+													display(notif + "The good is now for selling." + notif);
 
 													// reset acks's number
 													nAck = 0;
@@ -810,7 +810,7 @@ public class Client  {
 												//the operation was not successful
 												else if(result.equals("Not ok") && (nAck == numberOfServers)){
 
-													display("The operation of selling the good was not successful.");
+													display(notif + "The operation of selling the good was not successful." + notif);
 
 													// reset acks's number
 													nAck = 0;
@@ -829,7 +829,7 @@ public class Client  {
 												// get the final answer
 												if (!(result == null)){
 
-													display(result);
+													display(notif + result + notif);
 
 													// reset the number of readings made
 													nReads = 0;
@@ -854,7 +854,7 @@ public class Client  {
 												// get the final answer
 												if (!result.equals("Not ok")){
 
-													display("The transfer was a success.");
+													display(notif + "The transfer was a success." + notif);
 
 													String success = "The transfer was a success.";
 
@@ -865,10 +865,18 @@ public class Client  {
 
 														tempPort = 1500 + message.getNumber();
 
-														System.out.println("Porto do buyer: " + tempPort);
+														LocalDateTime dateTimeToBuyer = LocalDateTime.now();
+						
+														DateTimeFormatter formattertoBuyer = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+														
+														// just to send something different from null
+				        								String timeToBuyer = dateTimeToBuyer.format(formattertoBuyer);
+				        								
+				        								// just to send something different from null
+				        								String tempSeqToBuyer = Integer.toString(1);
 														
 														// inform the buyer that the transfer was a success
-														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, success.getBytes(), null, null, tempPort, 0, null, null, null));
+														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, success.getBytes(), tempSeqToBuyer.getBytes(), timeToBuyer.getBytes(), tempPort, 0, null, null, null));
 													
 														tempPort = 0;
 
@@ -882,7 +890,7 @@ public class Client  {
 												//the operation was not successful
 												else if(result.equals("Not ok") && (nAck == numberOfServers)){
 
-													display("The operation of transfer the good was not successful.");
+													display(notif + "The operation of transfer the good was not successful." + notif);
 
 													String fail = "The transfer was not a success.";
 
@@ -1082,7 +1090,7 @@ public class Client  {
 						String[] msgReceivedByClient = msgDecryptOfClient.split(" ");	       
 
 				        // print the message received by a client (a possible buyer)
-				        display("The buyer: " + msgReceivedByClient[0] + " wants to buy from you the following good: " + msgReceivedByClient[1]);
+				        display(notif + "The buyer: " + msgReceivedByClient[0] + " wants to buy from you the following good: " + msgReceivedByClient[1] + notif);
 
 						try {
 													
@@ -1108,7 +1116,7 @@ public class Client  {
 						String msgDecryptOfClient = decryptMessageOfClients(messageClient.getData(),messageClient.getDataSignature(), idClientReceived);
 
 						//response of the seller
-						display(msgDecryptOfClient);							
+						display(notif + msgDecryptOfClient + notif);							
 					}										
 				}
 				
@@ -1180,7 +1188,6 @@ public class Client  {
 				msgEncrypt = new MessageHandler(msg.getType(),msg.getData(),msg.getSeq(),msg.getLocalDate(), clientPort, p, createSignature(new String(msg.getData()), clientConnection),createSignature(new String(msg.getSeq()),clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection));
 						
 				// send the final message
-				
 				sOutputToServer.writeObject(msgEncrypt);
 				
 				//convert to string
@@ -1223,8 +1230,6 @@ public class Client  {
 		ObjectOutputStream sOutputToClient;			
 		
 		int port = msg.getPort();
-
-		System.out.println("Vou enviar a mensagem para o porto: " + port);
 		
 		String clientAddress = "localhost";
 		
@@ -1232,22 +1237,22 @@ public class Client  {
 
 			socketToClient = null;
 			
-			// connect to seller's socket
+			// connect to seller's or buyer's socket
 			socketToClient = new Socket (clientAddress, port);	
 			
 			sOutputToClient = new ObjectOutputStream(socketToClient.getOutputStream());
 
-			msgToClient = new MessageHandler(msg.getType(),msg.getData(),msg.getSeq(),msg.getLocalDate(),firstPort, 0,createSignature(new String(msg.getData()), clientConnection),createSignature(new String(msg.getSeq()),clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection));
-					
+			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0, createSignature(new String(msg.getData()), clientConnection), createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection));
+
 			sOutputToClient.writeObject(msgToClient);
 			
 			socketToClient.setSoTimeout(5000*100);  //set timeout to 500 seconds
 			
 			sOutputToClient.close();
-										
+
+			socketToClient.close();							
 		}
-		
-				
+			
 		catch(IOException e) {
 			
 			display("Exception writing to other client: " + e);
