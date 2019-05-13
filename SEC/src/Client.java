@@ -129,19 +129,19 @@ public class Client  {
 	*/
 
 	//List of goods of the client
-	private static HashMap<String, String> goodsList = new HashMap<String, String>();
+	private static ConcurrentHashMap <String, String> goodsList = new ConcurrentHashMap <String, String>();
 
 	// HashMap to keep the ports that will be used by each client in theirs privates connections
-	private static HashMap<String, Integer> portsList = new HashMap<String, Integer>();
+	private static ConcurrentHashMap <String, Integer> portsList = new ConcurrentHashMap <String, Integer>();
 
 	// list of all sockets created to talk to all servers (Notary)
-	private static ArrayList<Socket> socketsList = new ArrayList<Socket>();
+	private static ArrayList <Socket> socketsList = new ArrayList<Socket>();
 
 	// list of all input's objects to send messages to all servers
-	private static ArrayList<ObjectInputStream> objInputList = new ArrayList<ObjectInputStream>();
+	private static ArrayList <ObjectInputStream> objInputList = new ArrayList <ObjectInputStream>();
 
 	// list of all output's objects to receive messages to all servers
-	private static ArrayList<ObjectOutputStream> objOutputList = new ArrayList<ObjectOutputStream>();
+	private static ArrayList <ObjectOutputStream> objOutputList = new ArrayList <ObjectOutputStream>();
 	
 
 	/*
@@ -178,7 +178,7 @@ public class Client  {
 		goodsList.put(good, clientID);
 	}
 	
-	public static HashMap<String, String> getGoodsClient() {
+	public static ConcurrentHashMap <String, String> getGoodsClient() {
 		return goodsList;
 	}
 		
@@ -491,7 +491,7 @@ public class Client  {
 			if (i == 0){
 				
 				if (msg.equalsIgnoreCase("ENTER")){
-					
+
 					// put the goods on the list of goods
 					setGoodsClient(clientID + "Maca", clientID);
 					setGoodsClient(clientID + "Banana", clientID);
@@ -510,7 +510,7 @@ public class Client  {
 			        String time = dateTime.format(formatter);
 			        	
 			        //send message
-			        client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0,temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
+			        client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0, temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
 					
 					i=1;
 				}
@@ -1299,44 +1299,56 @@ public class Client  {
 			}	
 		}
 
-		//check if message has the right rid
-		if (rid == ridReceived){
+		// check if this server already has responded to this question
+		if (readList.get(serverName) != null){
 
-			// add the pair received to the readList
-			readList.put(serverName, new Pair(messageOfServer, timestamp));
-
-			// when the reader obtains VALUE messages from more than (N + f)/2 processes, 
-			// at least one of these message originates from a correct process and contains wts, v, and a valid signature from p
-			if (nReads > (numberOfServers + maxFaults)/2){
-
-				// to get the higher timestamp of the readList (in other words, the last response received)
-				for(String tempMsg: readList.keySet()) {
-
-					if (maxTimestamp == null){
-
-						maxTimestamp = readList.get(tempMsg).readTimestamp;
-
-						maxValue = readList.get(tempMsg).value;
-					}
-
-					if(maxTimestamp.isBefore(readList.get(tempMsg).readTimestamp)){
-
-						maxTimestamp = readList.get(tempMsg).readTimestamp;
-
-						maxValue = readList.get(tempMsg).value;	
-					}
-				}
-
-				return maxValue;
-			}			
-		}
-
-		// the message does not have the right rid
-		else {
-
-			display("Message received has a wrong rid.");
+			display("This server is responding more than one time to the same operation. Not valid.");
 
 			return null;
+		}
+
+		// this server has not yet replied -> lets check his response
+		else {
+
+			//check if message has the right rid
+			if (rid == ridReceived){
+
+				// add the pair received to the readList
+				readList.put(serverName, new Pair(messageOfServer, timestamp));
+
+				// when the reader obtains VALUE messages from more than (N + f)/2 processes, 
+				// at least one of these message originates from a correct process and contains wts, v, and a valid signature from p
+				if (nReads > (numberOfServers + maxFaults)/2){
+
+					// to get the higher timestamp of the readList (in other words, the last response received)
+					for(String tempMsg: readList.keySet()) {
+
+						if (maxTimestamp == null){
+
+							maxTimestamp = readList.get(tempMsg).readTimestamp;
+
+							maxValue = readList.get(tempMsg).value;
+						}
+
+						if(maxTimestamp.isBefore(readList.get(tempMsg).readTimestamp)){
+
+							maxTimestamp = readList.get(tempMsg).readTimestamp;
+
+							maxValue = readList.get(tempMsg).value;	
+						}
+					}
+
+					return maxValue;
+				}			
+			}
+
+			// the message does not have the right rid
+			else {
+
+				display("Message received has a wrong rid.");
+
+				return null;
+			}
 		}
 
 		return null;
@@ -1362,26 +1374,38 @@ public class Client  {
 
 		//get the timestamp that the server sent
 		int ts =Integer.parseInt(wtsTemp);
+		
+		// check if this server already has responded to this question
+		if (ackList.get(serverPort) != null){
 
-		nAck ++;
+			display("This server is responding more than one time to the same operation. Not valid.");
 
-		//check if message has the right timestamp
-		if (wts == ts){
+			return null;
+		}
 
-				if (msgReceived[0].equals("ACK")){
+		// this server has not yet replied -> lets check his response
+		else {
 
-					// put the response and the port of the respective server in the list that keeps the ACK's responses and who answered that
-					ackList.put(serverPort, true);
-				}
+			nAck ++;
 
-				// check condition of the algorithm
-				if (ackList.size() > (numberOfServers + maxFaults)/2){
+			//check if message has the right timestamp
+			if (wts == ts){
 
-					// reset the list
-					ackList = new ConcurrentHashMap <Integer, Boolean>();
+					if (msgReceived[0].equals("ACK")){
 
-					return "Ok";
-				}
+						// put the response and the port of the respective server in the list that keeps the ACK's responses and who answered that
+						ackList.put(serverPort, true);
+					}
+
+					// check condition of the algorithm
+					if (ackList.size() > (numberOfServers + maxFaults)/2){
+
+						// reset the list
+						ackList = new ConcurrentHashMap <Integer, Boolean>();
+
+						return "Ok";
+					}
+			}
 		}
 
 		return "Not ok";

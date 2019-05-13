@@ -61,6 +61,9 @@ public class Notary {
 	
 	// message received from the clients
 	private MessageHandler message;
+
+	//the max number of concurrent transactions per client
+	private int maxTransactions = 5;
 	
 
 
@@ -87,6 +90,9 @@ public class Notary {
 
 	// HashMap to keep the timestamps received by the clients -> <idConncection of client that sent the message, timestamp received>
 	private ConcurrentHashMap <String, LocalDateTime> timestampList = new ConcurrentHashMap <String, LocalDateTime>();
+
+	// HashMap to control the number of transactions of each client
+	private ConcurrentHashMap <String, Integer []> transactionsControl = new ConcurrentHashMap <String, Integer []>();
 	
 
 
@@ -177,8 +183,7 @@ public class Notary {
 					clientsList.add(t);
 														
 					t.start();
-				}
-								
+				}				
 			}
 			
 			
@@ -540,8 +545,9 @@ public class Notary {
 				}
 			}
 			return false;
-		}		
-		
+		}	
+
+	
 		// infinite loop to read and forward message
 		public void run() {
 			
@@ -574,7 +580,7 @@ public class Notary {
 					
 					//number of the connection
 					String idConnection = socket.getLocalAddress().getHostAddress().toString() + ":" + realPort;
-												
+
 					//message received 
 					String mensagemDecryt = decryptMessage(message.getData(),message.getDataSignature(), idConnection);
 					
@@ -638,6 +644,10 @@ public class Notary {
 									updateClientsPortsTables(portsList.toString());
 
 									timestampList.put(idConnection, localDateReceived);
+
+									Integer [] maxTransactionsControl = new Integer [] {1, maxTransactions};
+
+									transactionsControl.put(clientID, maxTransactionsControl);
 									
 								} catch (Exception e) {
 
@@ -874,7 +884,6 @@ public class Notary {
 																			
 										} catch (IOException | GeneralSecurityException  e) {
 											
-										
 											e.printStackTrace();
 										}
 									}									
@@ -898,7 +907,7 @@ public class Notary {
 									int b = 0;
 									
 									int k = 0;
-									
+
 									// Check if the good exists on the application 
 									if(checkGood(good) == true){
 									
@@ -951,7 +960,7 @@ public class Notary {
 																clientsGoodsToSell.remove(key, value);	
 																																
 																display("The transfer was successful.");
-																
+
 																//inform the seller about the outcome of the transfer + send the wts received
 													    		writeMsg(4, "ACK" + " " + m[2]);
 
