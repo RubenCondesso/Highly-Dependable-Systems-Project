@@ -510,7 +510,7 @@ public class Client  {
 			        String time = dateTime.format(formatter);
 			        	
 			        //send message
-			        client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0,temp.getBytes(), tempSeq.getBytes(), time.getBytes()));
+			        client.sendMessage(new MessageHandler(MessageHandler.ENTER, temp.getBytes(), tempSeq.getBytes(), time.getBytes(), clientPort, 0,temp.getBytes(), tempSeq.getBytes(), time.getBytes(),null,null));
 					
 					i=1;
 				}
@@ -536,7 +536,7 @@ public class Client  {
 					
 					byte[] tempBytes = temp.getBytes();
 					
-					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));
+					client.sendMessage(new MessageHandler(MessageHandler.LOGOUT, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(),null,null));
 					
 					break;
 				}
@@ -561,7 +561,7 @@ public class Client  {
 					
 			        String time = dateTime.format(formatter);
 									
-			        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));					
+			        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(),null,null));					
 				}
 				
 				// message to the server to get the state of some good
@@ -584,7 +584,7 @@ public class Client  {
 
 			        byte[] tempBytes =msgGoodStateToServer.getBytes();
 																				
-			        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes()));																						
+			        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(),null,null));																						
 				}
 				
 				// message to the server to buy some good
@@ -618,7 +618,7 @@ public class Client  {
 			        		// port of the seller
 			        		tempPort = item.getValue();
 			        					        					        					        		
-			        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort, clientPort,tempBytes, tempSeq.getBytes(), time.getBytes()));
+			        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort, clientPort,tempBytes, tempSeq.getBytes(), time.getBytes(),null,null));
 			        	
 			        		tempPort = 0;
 			        	}	
@@ -876,7 +876,7 @@ public class Client  {
 				        								String tempSeqToBuyer = Integer.toString(1);
 														
 														// inform the buyer that the transfer was a success
-														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, success.getBytes(), tempSeqToBuyer.getBytes(), timeToBuyer.getBytes(), tempPort, 0, null, null, null));
+														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, success.getBytes(), tempSeqToBuyer.getBytes(), timeToBuyer.getBytes(), tempPort, 0, null, null, null,null,null));
 													
 														tempPort = 0;
 
@@ -902,7 +902,7 @@ public class Client  {
 														tempPort = 1500 + message.getNumber();
 
 														// inform the buyer that the transfer was not a success
-														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, fail.getBytes(), null, null, tempPort, 0, null, null, null));
+														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, fail.getBytes(), null, null, tempPort, 0, null, null, null,null,null));
 													
 														tempPort = 0;
 													}
@@ -1094,7 +1094,7 @@ public class Client  {
 
 						try {
 													
-							sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes(), messageClient.getPort(), 0, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes()));
+							sendMessage(new MessageHandler(MessageHandler.TRANSFERGOOD, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes(), messageClient.getPort(), 0, msgDecryptOfClient.getBytes(), tempSeq.getBytes(), time.getBytes(),messageClient.getDataSignature(),idClientReceived));
 
 						} catch (UnrecoverableKeyException | KeyStoreException | CertificateException e) {
 							
@@ -1181,11 +1181,13 @@ public class Client  {
 
 				// get the output object connected to the socket connected to that server from the list
 				sOutputToServer = objOutputList.get(p);	
-
+				
+				System.out.println("message handler" + msg.getType());
+				
 				msgEncrypt = null;
 									
 				//Client will send a normal message encrypted				
-				msgEncrypt = new MessageHandler(msg.getType(),msg.getData(),msg.getSeq(),msg.getLocalDate(), clientPort, p, createSignature(new String(msg.getData()), clientConnection),createSignature(new String(msg.getSeq()),clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection));
+				msgEncrypt = new MessageHandler(msg.getType(),msg.getData(),msg.getSeq(),msg.getLocalDate(), clientPort, p, createSignature(new String(msg.getData()), clientConnection),createSignature(new String(msg.getSeq()),clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection),msg.getVerifySignature(),msg.getBuyer());
 						
 				// send the final message
 				sOutputToServer.writeObject(msgEncrypt);
@@ -1242,7 +1244,7 @@ public class Client  {
 			
 			sOutputToClient = new ObjectOutputStream(socketToClient.getOutputStream());
 
-			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0, createSignature(new String(msg.getData()), clientConnection), createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection));
+			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0, createSignature(new String(msg.getData()), clientConnection), createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection),null,null);
 
 			sOutputToClient.writeObject(msgToClient);
 			

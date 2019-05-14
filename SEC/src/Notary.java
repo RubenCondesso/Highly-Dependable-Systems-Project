@@ -579,7 +579,7 @@ public class Notary {
 					String mensagemDecryt = decryptMessage(message.getData(),message.getDataSignature(), idConnection);
 					
 					//sequence number of the message
-					String seqDecryt = decryptMessage(message.getSeq(),message.getSeqSignature(), idConnection);	
+					String seqDecryt = decryptMessage(message.getSeq(),message.getSeqSignature(), idConnection);
 					
 					//Get the time of the message received
 					String timeReceived = decryptMessage(message.getLocalDate(),message.getDateSignature(), idConnection);
@@ -885,6 +885,12 @@ public class Notary {
 								
 							case MessageHandler.TRANSFERGOOD:
 								
+								String teste = decryptMessage(mensagemDecryt.getBytes(),message.verifySignature,message.buyer);
+								
+								System.out.println(message.buyer);
+								
+								System.out.println("transfergood " + teste);
+								
 								String[] m = (mensagemDecryt.toString()).split(" ");
 																						
 								if (m.length == 3){
@@ -1168,7 +1174,7 @@ public class Notary {
 				try {
 					
 					//secure the current message
-					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection),null,null);
 				
 				} catch (Exception e) {
 				
@@ -1224,7 +1230,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection),null,null);
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);

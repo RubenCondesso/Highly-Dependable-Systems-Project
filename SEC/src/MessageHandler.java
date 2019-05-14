@@ -38,10 +38,14 @@ public class MessageHandler implements Serializable {
 	byte[] seqSignature;
 	
 	byte[] dateSignature;
+	
+	byte[] verifySignature;
+	
+	String buyer;
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature ) {
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature, byte[] verifySignature, String buyer ) {
 		
 		//Type of message
 		this.type = type;
@@ -69,6 +73,10 @@ public class MessageHandler implements Serializable {
 		this.seqSignature = seqSignature;
 		
 		this.dateSignature = dateSignature;
+		
+		this.verifySignature = verifySignature;
+		
+		this.buyer = buyer;
 
 	}
 
@@ -115,6 +123,21 @@ public class MessageHandler implements Serializable {
 	 
 	 byte[] getDateSignature() {
 		 return dateSignature;
+		 
+	 }
+	 
+	 byte[] getVerifySignature() {
+		 
+		 return verifySignature; 
+		 
+		 
+		 
+	 }
+	 
+	 String getBuyer() {
+		 
+		 return buyer;
+		 
 		 
 	 }
 
