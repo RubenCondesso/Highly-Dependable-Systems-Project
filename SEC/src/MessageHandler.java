@@ -22,6 +22,10 @@ public class MessageHandler implements Serializable {
 	private int port;
 
 	private int number;
+
+	private int randomNumber;
+
+	private String hashResult;
 	
 	private static final long serialVersionUID = 1L;
 	
@@ -39,9 +43,10 @@ public class MessageHandler implements Serializable {
 	
 	byte[] dateSignature;
 
+
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature ) {
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature, int randomNumber, String hashResult ) {
 		
 		//Type of message
 		this.type = type;
@@ -69,6 +74,12 @@ public class MessageHandler implements Serializable {
 		this.seqSignature = seqSignature;
 		
 		this.dateSignature = dateSignature;
+
+		// random Number to prevent spam messaging of clients
+		this.randomNumber = randomNumber;	
+
+		// hash of the result of the factorial of the random number
+		this.hashResult = hashResult;
 
 	}
 
@@ -118,5 +129,14 @@ public class MessageHandler implements Serializable {
 		 
 	 }
 
+	 int getRandomNumber(){
+
+	 	return randomNumber;
+	 }
+
+	 String getHashResult(){
+
+	 	return hashResult;
+	 }
 	
 }

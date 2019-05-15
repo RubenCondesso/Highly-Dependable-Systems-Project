@@ -16,8 +16,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import javax.xml.bind.DatatypeConverter;
 
 import javax.crypto.*;
+
 
 
 // the server that can be run as a console
@@ -91,13 +93,12 @@ public class Notary {
 	// HashMap to keep the timestamps received by the clients -> <idConncection of client that sent the message, timestamp received>
 	private ConcurrentHashMap <String, LocalDateTime> timestampList = new ConcurrentHashMap <String, LocalDateTime>();
 
-	// HashMap to control the number of transactions of each client
-	private ConcurrentHashMap <String, Integer []> transactionsControl = new ConcurrentHashMap <String, Integer []>();
-	
+	// HashMap to the keep clientID and the respective random number that the server sent this client -> To be used in each transfer
+	private ConcurrentHashMap <String, Integer> randomNumberList = new ConcurrentHashMap <String, Integer>();
 
+	// HashMap to keep random numbers and the respective hash of the factorial result of that number
+	private ConcurrentHashMap <String, Integer> hashRandomNumberList = new ConcurrentHashMap <String, Integer>();
 
-
-				
 	//constructor that receive the port to listen to for connection as parameter
 	public Notary(int port) {
 		
@@ -123,7 +124,10 @@ public class Notary {
 		{
 			// the socket used by the server
 			ServerSocket serverSocket = new ServerSocket(port);
-						
+
+			//generate the random hashRandomNumberList
+			calculateHash();
+
 			notaryConnection = serverSocket.getInetAddress().getHostAddress().toString().replace("/","") + ":" + serverSocket.getLocalPort();
 			
 			RSA rsa = new RSA();
@@ -138,7 +142,6 @@ public class Notary {
 			
 			//10 seconds to message expire
 			expireTime = 10;
-			
 			
 			try {
 				
@@ -281,7 +284,7 @@ public class Notary {
 					if(check.equals(tocheck)) {
 						
 						// try to write to the Client if it fails remove it from the list
-						if(!ct1.writeMsg(typeMessage, messageLf)) {
+						if(!ct1.writeMsg(typeMessage, messageLf, 0)) {
 							
 							clientsList.remove(y);
 							display("Disconnected Client " + ct1.clientID + " removed from list.");
@@ -318,7 +321,7 @@ public class Notary {
 					
 					
 					// try to write to the Client if it fails remove it from the list
-					if(!ct.writeMsg(typeMessage, messageLf)) {
+					if(!ct.writeMsg(typeMessage, messageLf, 0)) {
 						
 						clientsList.remove(x);
 						
@@ -356,7 +359,7 @@ public class Notary {
 	
 	
 	// to error message to a specific client
-	private synchronized boolean sendErrorMsg(Integer typeMessage, String clientName, String errorMsg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+	private synchronized boolean sendErrorMsg(Integer typeMessage, String clientName, String errorMsg, int randomNumber) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
 			
 		for(int t = clientsList.size(); --t >= 0;) {
 				
@@ -364,7 +367,7 @@ public class Notary {
 			
 			if(clientName.equals(cT1.getClientID())){
 				
-				cT1.writeMsg(typeMessage, errorMsg);
+				cT1.writeMsg(typeMessage, errorMsg, randomNumber);
 			}			
 		}
 			
@@ -597,7 +600,7 @@ public class Notary {
 					LocalDateTime localDateReceived = LocalDateTime.parse(timeReceived, formatter);
 					
 					//current time
-					LocalDateTime tAtual = LocalDateTime.now();        
+					LocalDateTime tAtual = LocalDateTime.now();   
 			      					
 					//check if the message's time has expired 
 					if (Duration.between(tAtual, localDateReceived).getSeconds() < expireTime ){
@@ -607,7 +610,6 @@ public class Notary {
 							
 							seqNumber = Integer.parseInt(seqDecryt) + 1;
 
-							
 							// different actions based on type message
 							switch(message.getType()) {
 								
@@ -640,15 +642,16 @@ public class Notary {
 								portsList.put(nomeTemp, tempPort);
 																	
 								try {
-									
-									updateClientsPortsTables(portsList.toString());
+								
+									// get the first entry of the list and send the randomNumber to the Client
+									Map.Entry<String, Integer> entry = hashRandomNumberList.entrySet().iterator().next();
+
+									updateClientsPortsTables(portsList.toString(), entry.getValue());
 
 									timestampList.put(idConnection, localDateReceived);
 
-									Integer [] maxTransactionsControl = new Integer [] {1, maxTransactions};
+									randomNumberList.put(clientID, entry.getValue());
 
-									transactionsControl.put(clientID, maxTransactionsControl);
-									
 								} catch (Exception e) {
 
 									e.printStackTrace();
@@ -719,7 +722,7 @@ public class Notary {
 										
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid ." +  " " + msgReceivedSell[1]);
+										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid ." +  " " + msgReceivedSell[1], 0);
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -744,7 +747,7 @@ public class Notary {
 									    	try {
 									    		
 									    		//All Conditions passed -> Return a ACK to the Client + the wts received
-												writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1]);
+												writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1], 0);
 
 												timestampList.put(idConnection, localDateReceived);
 												
@@ -761,7 +764,7 @@ public class Notary {
 											
 											try {
 																							
-												sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1]);
+												sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1], 0);
 
 												timestampList.put(idConnection, localDateReceived);
 												
@@ -779,7 +782,7 @@ public class Notary {
 										
 										try {
 																											
-											sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1]);
+											sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1], 0);
 
 											timestampList.put(idConnection, localDateReceived);
 											
@@ -812,7 +815,7 @@ public class Notary {
 										
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid" +  " " + msgReceivedState[1]);
+										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid" +  " " + msgReceivedState[1], 0);
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -842,7 +845,7 @@ public class Notary {
 										    	
 										    	try {
 										    		
-													writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1]);
+													writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1], 0);
 
 													timestampList.put(idConnection, localDateReceived);
 													
@@ -861,7 +864,7 @@ public class Notary {
 										
 										try {
 																											
-											sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1]);
+											sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1], 0);
 
 											timestampList.put(idConnection, localDateReceived);
 																				
@@ -878,7 +881,7 @@ public class Notary {
 										
 										try {
 																										
-											sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1]);
+											sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1], 0);
 
 											timestampList.put(idConnection, localDateReceived);
 																			
@@ -893,205 +896,244 @@ public class Notary {
 								
 								
 							case MessageHandler.TRANSFERGOOD:
-								
+
 								String[] m = (mensagemDecryt.toString()).split(" ");
-																						
-								if (m.length == 3){
-																																				
-									//The BuyerID
-									String buyer = m[0];
-									
-									//The goodID that will be transfer
-									String good = m[1];
-									
-									int b = 0;
-									
-									int k = 0;
 
-									// Check if the good exists on the application 
-									if(checkGood(good) == true){
-									
-										for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
-											
-											String key = item.getKey();
-										    String value = item.getValue();
-										    
-										    //Verify if the requested good is for sale and if the client it's the owner of the good
-										    if (key.equals(clientID) && value.equals(good)){
-										    	
-										    	b=1;
-										    	
-										    	//The Buyer is the Seller
-										    	if(clientID.equals(buyer)){
-										    	
-										    		display("A client can't transfer his own goods to himself. ");
-										    		
-													try {
-														
-														sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself." + " " + m[2]);		
+								// hash received is wrong
+								try {
+									if (checkHash(clientID, message.getHashResult()) == false){
 
-														timestampList.put(idConnection, localDateReceived);
-														
-													} catch (IOException | GeneralSecurityException e) {
-														
-														e.printStackTrace();
-													}
-										    	}
-										    	
-										    	else{
-										    		
-										    		for(int y=clientsList.size(); --y>=0;){
-														
-														ClientThread ct1=clientsList.get(y);
-														
-														String check=ct1.getClientID();
-														
-														//Verify if the Buyer is a client on the list
-														if (check.equals(buyer)){
-															
-															k = 1;
-															
-															try {
-																																
-																clientsGoodsList.put(value, buyer);
-																
-																clientsGoodsList.remove(value, key);
-																
-																clientsGoodsToSell.remove(key, value);	
-																																
-																display("The transfer was successful.");
+										display("Hash received is incorrect.");
 
-																//inform the seller about the outcome of the transfer + send the wts received
-													    		writeMsg(4, "ACK" + " " + m[2]);
-
-													    		timestampList.put(idConnection, localDateReceived);
-													    																																												
-															    try {
-																
-															    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
-
-															    	synchronized(fos1){
-
-																		ObjectOutputStream oos = new ObjectOutputStream(fos1);
-																		
-																		//save information of the application to file, in case of server crash
-																		oos.writeObject(clientsGoodsList);
-																		
-																		oos.close();
-																		fos1.close();
-																	}
-
-																	// save the information of the transaction
-																	String[] transactionInformation = new String[]{ct1.getClientID(), clientID, good}; 
-
-																	
-																	// save this information in the 
-																	transactionsHistory.put(tAtual, transactionInformation);
-
-																	FileOutputStream fos2 = new FileOutputStream("transactionsHistory.ser");
-
-															    	synchronized(fos2){
-
-																		ObjectOutputStream oos1 = new ObjectOutputStream(fos2);
-																		
-																		//save information of the application to file, in case of server crash
-																		oos1.writeObject(transactionsHistory);
-																		
-																		oos1.close();
-																		fos2.close();
-																	}
-
-																    
-																} catch (FileNotFoundException e) {
-																	
-																	e.printStackTrace();
-																	
-																} catch (IOException e) {
-																	
-																	e.printStackTrace();
-																}
-																
-															} catch (IOException | GeneralSecurityException  e) {
-																
-																e.printStackTrace();
-															}
-															
-														}
-														
-											    	}
-										    		
-										    		// the Buyer is not on the application
-										    		if (k == 0){
-										    			
-										    			try {
-															
-															sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application." + " " + m[2]);
-
-															timestampList.put(idConnection, localDateReceived);
-																															
-														} catch (IOException | GeneralSecurityException e) {
-															
-															e.printStackTrace();
-														}
-										    		}
-										    	
-										    	}
-										    									
-										    }						
-										}
-									
-										//The good is not for sale
-										if (b == 0){
-											
-											display("The good is not for sale. ");
-											
-											try {
-																								
-												sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." + " " + m[2]);
-
-												timestampList.put(idConnection, localDateReceived);
-																					
-											} catch (IOException | GeneralSecurityException e) {
-											
-												e.printStackTrace();
-											}
-											
-										}
-										
-									}
-									
-									else {
-										
-										display("The good does not exist on the application. ");
-										
 										try {
-																						
-											sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application. ");
+
+											Random generator = new Random();
+
+											Object[] values = hashRandomNumberList.values().toArray();
+
+											// pick random number of server's list
+											Object randomValue = values[generator.nextInt(values.length)];
+											
+											sendErrorMsg(message.getType(), clientID, "Hash received is incorrect." + " " + m[2], (Integer) randomValue);		
 
 											timestampList.put(idConnection, localDateReceived);
 											
 										} catch (IOException | GeneralSecurityException e) {
-										
+											
 											e.printStackTrace();
 										}
-									
-									}					
-								}
-								
-								else {
-									
-									try {
-										
-										sendErrorMsg(message.getType(), clientID, "No. Wrong Input. ");
 
-										timestampList.put(idConnection, localDateReceived);
+									}
+
+									// hash received is correct -> lets continue with the transfer
+									else {
+
+										Random generator = new Random();
+
+										Object[] values = hashRandomNumberList.values().toArray();
+
+										// pick random number of server's list
+										Object randomValue = values[generator.nextInt(values.length)];
+
+										if (m.length == 3){
+																																					
+											//The BuyerID
+											String buyer = m[0];
+											
+											//The goodID that will be transfer
+											String good = m[1];
+											
+											int b = 0;
+											
+											int k = 0;
+
+											// Check if the good exists on the application 
+											if(checkGood(good) == true){
+											
+												for (Map.Entry<String, String> item : clientsGoodsToSell.entrySet()){
+													
+													String key = item.getKey();
+												    String value = item.getValue();
+												    
+												    //Verify if the requested good is for sale and if the client it's the owner of the good
+												    if (key.equals(clientID) && value.equals(good)){
+												    	
+												    	b=1;
+												    	
+												    	//The Buyer is the Seller
+												    	if(clientID.equals(buyer)){
+												    	
+												    		display("A client can't transfer his own goods to himself. ");
+												    		
+															try {
+																
+																sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself." + " " + m[2], (Integer) randomValue);		
+
+																timestampList.put(idConnection, localDateReceived);
+																
+															} catch (IOException | GeneralSecurityException e) {
+																
+																e.printStackTrace();
+															}
+												    	}
+												    	
+												    	else{
+												    		
+												    		for(int y=clientsList.size(); --y>=0;){
+																
+																ClientThread ct1=clientsList.get(y);
+																
+																String check=ct1.getClientID();
+																
+																//Verify if the Buyer is a client on the list
+																if (check.equals(buyer)){
+																	
+																	k = 1;
+																	
+																	try {
+
+																		clientsGoodsList.put(value, buyer);
+																	
+																		clientsGoodsList.remove(value, key);
+																		
+																		clientsGoodsToSell.remove(key, value);	
+																																		
+																		display("The transfer was successful.");
+
+																		//inform the seller about the outcome of the transfer + send the wts received
+															    		writeMsg(4, "ACK" + " " + m[2], (Integer) randomValue);
+
+															    		timestampList.put(idConnection, localDateReceived);
+															    																																												
+																	    try {
+																		
+																	    	FileOutputStream fos1 = new FileOutputStream("clientsGoodsList.ser");
+
+																	    	synchronized(fos1){
+
+																				ObjectOutputStream oos = new ObjectOutputStream(fos1);
+																				
+																				//save information of the application to file, in case of server crash
+																				oos.writeObject(clientsGoodsList);
+																				
+																				oos.close();
+																				fos1.close();
+																			}
+
+																			// save the information of the transaction
+																			String[] transactionInformation = new String[]{ct1.getClientID(), clientID, good}; 
+
+																			
+																			// save this information in the 
+																			transactionsHistory.put(tAtual, transactionInformation);
+
+																			FileOutputStream fos2 = new FileOutputStream("transactionsHistory.ser");
+
+																	    	synchronized(fos2){
+
+																				ObjectOutputStream oos1 = new ObjectOutputStream(fos2);
+																				
+																				//save information of the application to file, in case of server crash
+																				oos1.writeObject(transactionsHistory);
+																				
+																				oos1.close();
+																				fos2.close();
+																			}
+
+																		    
+																		} catch (FileNotFoundException e) {
+																			
+																			e.printStackTrace();
+																			
+																		} catch (IOException e) {
+																			
+																			e.printStackTrace();
+																		}
+																																			
+																	} catch (IOException | GeneralSecurityException  e) {
+																		
+																		e.printStackTrace();
+																	}
+																	
+																}
+																
+													    	}
+												    		
+												    		// the Buyer is not on the application
+												    		if (k == 0){
+												    			
+												    			try {
+																	
+																	sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application." + " " + m[2], (Integer) randomValue);
+
+																	timestampList.put(idConnection, localDateReceived);
+																																	
+																} catch (IOException | GeneralSecurityException e) {
+																	
+																	e.printStackTrace();
+																}
+												    		}
+												    	}									
+												    }						
+												}
+											
+												//The good is not for sale
+												if (b == 0){
+													
+													display("The good is not for sale. ");
+													
+													try {
+																										
+														sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." + " " + m[2], (Integer) randomValue);
+
+														timestampList.put(idConnection, localDateReceived);
+																							
+													} catch (IOException | GeneralSecurityException e) {
+													
+														e.printStackTrace();
+													}
+													
+												}
+												
+											}
+											
+											else {
+												
+												display("The good does not exist on the application. ");
+												
+												try {
+																								
+													sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application.", (Integer) randomValue);
+
+													timestampList.put(idConnection, localDateReceived);
+													
+												} catch (IOException | GeneralSecurityException e) {
+												
+													e.printStackTrace();
+												}
+											
+											}					
+										}
 										
-									} catch (IOException | GeneralSecurityException e) {
-									
-										e.printStackTrace();
-									}	
+										else {
+											
+											try {
+												
+												sendErrorMsg(message.getType(), clientID, "No. Wrong Input.", (Integer) randomValue);
+
+												timestampList.put(idConnection, localDateReceived);
+												
+											} catch (IOException | GeneralSecurityException e) {
+											
+												e.printStackTrace();
+											}	
+										}
+									}
+								} catch (NoSuchAlgorithmException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
 								}
-								
+
 								break;
 							}
 							
@@ -1148,7 +1190,7 @@ public class Notary {
 		
 
 		// write a String to the Client output stream
-		private boolean writeMsg(Integer typeMessage, String msg) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException{
+		private boolean writeMsg(Integer typeMessage, String msg, int randomNumber) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException{
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1177,7 +1219,7 @@ public class Notary {
 				try {
 					
 					//secure the current message
-					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection), randomNumber, "");
 				
 				} catch (Exception e) {
 				
@@ -1206,7 +1248,7 @@ public class Notary {
 		}
 		
 		// send the portsList list to a client
-		private boolean updateMsg(String msg) throws Exception   {
+		private boolean updateMsg(String msg, int numeroRandom) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1233,7 +1275,7 @@ public class Notary {
 				String time = timeCurrent.format(formatter);
 				
 				//secure the current message
-				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection));
+				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(), createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection), numeroRandom, "");
 								
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1258,7 +1300,7 @@ public class Notary {
 		
 		
 		// write a String to the Client output stream
-		private boolean updateClientsPortsTables(String msg) throws Exception   {
+		private boolean updateClientsPortsTables(String msg, int numeroRandom) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1274,7 +1316,7 @@ public class Notary {
 					ClientThread ct1=clientsList.get(y);
 					
 					// send the updated table of portsList to all clients
-					ct1.updateMsg(msg);
+					ct1.updateMsg(msg, numeroRandom);
 					
 				}
 												
@@ -1292,9 +1334,83 @@ public class Notary {
 			return true;
 		}
 	}
-	
-	
 
+	// Generate random number with 4 digits
+	// calculate the hash of the result of the factorial of the random number
+	// The point is to use this function to prevent spam message of clients in transfergood
+	public void calculateHash() throws NoSuchAlgorithmException {
+
+		for (int nRandom = 0; nRandom < 10; nRandom ++){
+
+				int numeroAleatorio = 1000 + new Random().nextInt(9000); 
+
+				BigInteger factorialResult = calculateFactorial(numeroAleatorio);
+
+				MessageDigest md = MessageDigest.getInstance("MD5");
+
+				md.update(factorialResult.toByteArray());
+
+				byte[] digest = md.digest();
+    			
+    			String myHash = DatatypeConverter.printHexBinary(digest).toUpperCase();
+
+    			hashRandomNumberList.put(myHash, numeroAleatorio);
+ 		}
+	}
+
+
+	// calculate the factorial of a  number
+	// The point is to use this function to prevent spam message of clients in transfergood
+	public BigInteger calculateFactorial (int numero){ 
+
+		if (numero < 0){
+			return BigInteger.ZERO;
+		} 
+
+		else if( numero == 0){
+			return BigInteger.ONE;
+		}
+
+		else{
+			return BigInteger.valueOf(numero).multiply(calculateFactorial(numero-1));   
+		}
+ 	}  
+
+
+ 	// check if hash received by the client is correct 
+	public boolean checkHash(String clientName, String hashClient) throws NoSuchAlgorithmException {
+
+		Integer clientNumero = 0;
+
+		// get random number of the respective client
+		for (Map.Entry<String, Integer> numberItem : randomNumberList.entrySet()) {
+
+			if (numberItem.getKey().equals(clientName)){
+
+				clientNumero = numberItem.getValue();
+
+				for (Map.Entry<String, Integer> numberHasItem : hashRandomNumberList.entrySet()) {
+
+					if (numberHasItem.getValue().equals(clientNumero)){
+
+						if(numberHasItem.getKey().equals(hashClient)){
+							
+							randomNumberList.remove(clientName, clientNumero);
+
+							return true;
+						}
+
+						randomNumberList.remove(clientName, clientNumero);
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+
+
+	
 	// =============================================================================================================================================================================
 
 	/*
