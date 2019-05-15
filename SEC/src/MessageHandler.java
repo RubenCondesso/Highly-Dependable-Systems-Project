@@ -42,12 +42,17 @@ public class MessageHandler implements Serializable {
 	byte[] seqSignature;
 	
 	byte[] dateSignature;
+	
+	byte[] verifySignature;
+	
+	String buyer;
 
 
 	
 	// constructor
-	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature, int randomNumber, String hashResult ) {
-		
+
+	MessageHandler(int type, byte [] message, byte[] seq,  byte[] time, int port, int number, byte[] dataSignature,byte[] seqSignature,byte[] dateSignature, int randomNumber, String hashResult, byte[] verifySignature, String buyer  ) {
+
 		//Type of message
 		this.type = type;
 		
@@ -80,6 +85,10 @@ public class MessageHandler implements Serializable {
 
 		// hash of the result of the factorial of the random number
 		this.hashResult = hashResult;
+
+		this.verifySignature = verifySignature;
+		
+		this.buyer = buyer;
 
 	}
 
@@ -128,7 +137,7 @@ public class MessageHandler implements Serializable {
 		 return dateSignature;
 		 
 	 }
-
+	 
 	 int getRandomNumber(){
 
 	 	return randomNumber;
@@ -137,6 +146,18 @@ public class MessageHandler implements Serializable {
 	 String getHashResult(){
 
 	 	return hashResult;
+	 }
+	 
+	 byte[] getVerifySignature() {
+		 
+		 return verifySignature; 
+		 	 
+	 }
+	 
+	 String getBuyer() {
+		 
+		 return buyer;
+		 
 	 }
 	
 }
