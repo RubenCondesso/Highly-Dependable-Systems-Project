@@ -1108,6 +1108,12 @@ public class Client  {
 				        String time = dateTime.format(formatter1);
 				        
 				        String tempSeq = Integer.toString(seqNumber);
+				        
+				        System.out.println(new String(messageClient.getLocalDate()));
+				        
+				        System.out.println("mensagem: " + msgDecryptOfClient);
+				        
+				        System.out.println("seg received: " + messageClient.getDataSignature());
 
 						String[] msgReceivedByClient = msgDecryptOfClient.split(" ");	       
 
@@ -1282,8 +1288,14 @@ public class Client  {
 			socketToClient = new Socket (clientAddress, port);	
 			
 			sOutputToClient = new ObjectOutputStream(socketToClient.getOutputStream());
+			
+			System.out.println(new String(msg.getData()));
+			
+			byte[] sig = createSignature(new String(msg.getData()),clientConnection);
+			
+			System.out.println("sig: " + sig);
 
-			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0, createSignature(new String(msg.getData()), clientConnection), createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection), 0, "", null, null);
+			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0,sig, createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection), 0, "", null, null);
 
 			sOutputToClient.writeObject(msgToClient);
 			
@@ -1606,6 +1618,8 @@ public class Client  {
 	        	PublicKey pK = readPublicKeyFromFile(id);
 	        	
 	        	boolean ver = verify(message,signature,pK);
+	        	
+	        	System.out.println(ver);
 	        	
 	        	if (ver) {
 	        		

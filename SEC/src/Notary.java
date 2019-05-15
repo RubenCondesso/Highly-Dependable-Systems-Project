@@ -896,12 +896,28 @@ public class Notary {
 								
 								
 							case MessageHandler.TRANSFERGOOD:
+								
+								//servidor verifica se o pedido de transfergood é verídico
+								
+								String msm = new String(message.getData());
+								
+								String[] msmnova = msm.split(" ");
+								
+								String novamsm = msmnova[0] + " " + msmnova[1];
 
-								String teste = decryptMessage(mensagemDecryt.getBytes(), message.verifySignature, message.buyer);
+								String var = decryptMessage(novamsm.getBytes(), message.getVerifySignature(), message.getBuyer());
 								
-								System.out.println(message.buyer);
+								if (var != null) {
+									
+									System.out.println("O pedido de transfergood é válido");
+								}
 								
-								System.out.println("transfergood " + teste);
+								if (var == null) {
+									
+									System.out.println("pedido de transferência de bens inválido");
+									break;
+									
+								}
 								
 								String[] m = (mensagemDecryt.toString()).split(" ");
 
