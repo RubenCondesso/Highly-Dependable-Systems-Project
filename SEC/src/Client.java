@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.math.BigInteger;
 import javax.xml.bind.DatatypeConverter;
+import java.nio.charset.Charset;
 
 import javax.crypto.*;
 
@@ -161,8 +162,8 @@ public class Client  {
 	//List of returned values, for reading
 	private ConcurrentHashMap <String, Pair> readList = new ConcurrentHashMap <String, Pair>();  // String -> Server Name, Pair -> (message received, Timestamp)
 
-	// HashMap to keep a random number received by the servers
-	private static ConcurrentHashMap <String, Integer> randomNumberList = new ConcurrentHashMap <String, Integer>();
+	// HashMap to keep the hashs received by the servers
+	private static ConcurrentHashMap <String, String> randomNumberList = new ConcurrentHashMap <String, String>();
 
 	/*
 	 *  
@@ -762,7 +763,7 @@ public class Client  {
 							}
 
 							// keep the random number sent by the server
-							randomNumberList.put(String.valueOf(message.getPort()), message.getRandomNumber());
+							randomNumberList.put(String.valueOf(message.getPort()), message.getHashResult());
 
 							if (v == (objInputList.size()-1)){
 
@@ -826,7 +827,7 @@ public class Client  {
 												}
 
 												//the operation was not successful
-												else if(result.equals("Not ok") && (nAck == numberOfServers)){
+												else if(result.equals("Not ok") && (nAck >= (numberOfServers + maxFaults)/2)){
 
 													display(notif + "The operation of selling the good was not successful." + notif);
 
@@ -869,7 +870,7 @@ public class Client  {
 												// process message received from the server
 												result = writeOperation(msgDecrypt, message.getPort());
 
-												randomNumberList.put(String.valueOf(message.getPort()), message.getRandomNumber());
+												randomNumberList.put(String.valueOf(message.getPort()), message.getHashResult());
 
 												// get the final answer
 												if (!result.equals("Not ok")){
@@ -896,7 +897,6 @@ public class Client  {
 				        								String tempSeqToBuyer = Integer.toString(1);
 														
 														// inform the buyer that the transfer was a success
-
 														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, success.getBytes(), tempSeqToBuyer.getBytes(), timeToBuyer.getBytes(), tempPort, 0, null, null, null, 0, "", null, null));
 													
 														tempPort = 0;
@@ -909,7 +909,7 @@ public class Client  {
 												}
 
 												//the operation was not successful
-												else if(result.equals("Not ok") && (nAck == numberOfServers)){
+												else if(result.equals("Not ok") && (nAck >= (numberOfServers + maxFaults)/2)){
 
 													display(notif + "The operation of transfer the good was not successful." + notif);
 
@@ -922,9 +922,18 @@ public class Client  {
 														
 														tempPort = 1500 + message.getNumber();
 
-														// inform the buyer that the transfer was not a success
+														LocalDateTime dateTimeToBuyer = LocalDateTime.now();
+						
+														DateTimeFormatter formattertoBuyer = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+														
+														// just to send something different from null
+				        								String timeToBuyer = dateTimeToBuyer.format(formattertoBuyer);
+				        								
+				        								// just to send something different from null
+				        								String tempSeqToBuyer = Integer.toString(1);
 
-														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, fail.getBytes(), null, null, tempPort, 0, null, null, null, 0, "", null, null));
+														// inform the buyer that the transfer was not a success
+														sendMessageToClients(new MessageHandler(MessageHandler.TRANSFERGOOD, fail.getBytes(), tempSeqToBuyer.getBytes(), timeToBuyer.getBytes(), tempPort, 0, null, null, null, 0, "", null, null));
 													
 														tempPort = 0;
 													}
@@ -1108,13 +1117,7 @@ public class Client  {
 				        String time = dateTime.format(formatter1);
 				        
 				        String tempSeq = Integer.toString(seqNumber);
-				        
-				        System.out.println(new String(messageClient.getLocalDate()));
-				        
-				        System.out.println("mensagem: " + msgDecryptOfClient);
-				        
-				        System.out.println("seg received: " + messageClient.getDataSignature());
-
+				       
 						String[] msgReceivedByClient = msgDecryptOfClient.split(" ");	       
 
 				        // print the message received by a client (a possible buyer)
@@ -1200,7 +1203,7 @@ public class Client  {
 
 			for (int p = 0; p < objOutputList.size(); p ++){
 
-				String resultadoHash = "Vazio";
+				Integer numeroHash = 0;
 
 				socketToServer = null;
 
@@ -1216,26 +1219,24 @@ public class Client  {
 				if (msg.getType() == 4){
 
 					// get the random number that the server send to this client
-					for (Map.Entry<String, Integer> numberItem : randomNumberList.entrySet()) {
+					for (Map.Entry<String, String> numberItem : randomNumberList.entrySet()) {
 
 						//get the specific server
 						if (numberItem.getKey().equals(Integer.toString(socketToServer.getPort()))){
 
 							//create hash of factorial of number sent by the server
-							resultadoHash = calculateHash(numberItem.getValue());
+							numeroHash = findNumber(numberItem.getValue());
 
 							randomNumberList.remove(Integer.toString(socketToServer.getPort()), numberItem.getValue());
 						}
 					}
 				}
-				
-				System.out.println("message handler" + msg.getType());
-				
+								
 				msgEncrypt = null;
 
 				//Client will send a normal message encrypted				
 
-				msgEncrypt = new MessageHandler(msg.getType(), msg.getData(), msg.getSeq(),msg.getLocalDate(), clientPort, p, createSignature(new String(msg.getData()), clientConnection),createSignature(new String(msg.getSeq()),clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection), 0, resultadoHash, msg.getVerifySignature(),msg.getBuyer());					
+				msgEncrypt = new MessageHandler(msg.getType(), msg.getData(), msg.getSeq(),msg.getLocalDate(), clientPort, p, createSignature(new String(msg.getData()), clientConnection),createSignature(new String(msg.getSeq()),clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection), numeroHash, "", msg.getVerifySignature(),msg.getBuyer());					
 
 				// send the final message
 				sOutputToServer.writeObject(msgEncrypt);
@@ -1288,14 +1289,10 @@ public class Client  {
 			socketToClient = new Socket (clientAddress, port);	
 			
 			sOutputToClient = new ObjectOutputStream(socketToClient.getOutputStream());
-			
-			System.out.println(new String(msg.getData()));
-			
+						
 			byte[] sig = createSignature(new String(msg.getData()),clientConnection);
 			
-			System.out.println("sig: " + sig);
-
-			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0,sig, createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection), 0, "", null, null);
+			msgToClient = new MessageHandler(msg.getType() , msg.getData(), msg.getSeq(), msg.getLocalDate(), firstPort, 0, sig, createSignature(new String(msg.getSeq()), clientConnection),createSignature(new String(msg.getLocalDate()),clientConnection), 0, "", null, null);
 
 			sOutputToClient.writeObject(msgToClient);
 			
@@ -1466,20 +1463,36 @@ public class Client  {
 
 
 
-	// calculate the hash of the result of the factorial of a random number
-	public String calculateHash(int numeroAleatorio) throws NoSuchAlgorithmException {
+	// find the number that belongs to the hash received by the server
+	public Integer findNumber(String hashOfServer) throws NoSuchAlgorithmException {
 
-		BigInteger factorialResult = calculateFactorial(numeroAleatorio);
+		String finalHash ="";
 
-		MessageDigest md = MessageDigest.getInstance("MD5");
+		for (int tentativa = 1000; tentativa <= 10000; tentativa ++){
 
-		md.update(factorialResult.toByteArray());
+			BigInteger factorialResult = calculateFactorial(tentativa);
 
-		byte[] digest = md.digest();
-		
-		String myHash = DatatypeConverter.printHexBinary(digest).toUpperCase();
+			MessageDigest md = MessageDigest.getInstance("MD5");
 
-		return myHash;
+			md.update(factorialResult.toByteArray());
+
+			byte[] digest = md.digest();
+ 
+			String myHash = DatatypeConverter.printHexBinary(digest).toUpperCase();
+
+			for (int tentativa2 = 100; tentativa2 <= 1000; tentativa2 ++){
+
+				finalHash = myHash + Integer.toString(tentativa2);
+
+				if (finalHash.equals(hashOfServer)){
+
+					// number founded
+					return tentativa;
+				}	
+			}
+		}
+
+		return 0;
 	}
 
 	// calculate the factorial of a  number
@@ -1498,9 +1511,7 @@ public class Client  {
 		}
  	}  
 
-
-
-
+ 	
 	// =============================================================================================================================================================================
 
 	/*
@@ -1618,9 +1629,7 @@ public class Client  {
 	        	PublicKey pK = readPublicKeyFromFile(id);
 	        	
 	        	boolean ver = verify(message,signature,pK);
-	        	
-	        	System.out.println(ver);
-	        	
+	        		        	
 	        	if (ver) {
 	        		
 	        		return new String(message);

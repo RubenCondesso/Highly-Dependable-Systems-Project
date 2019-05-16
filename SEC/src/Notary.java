@@ -17,6 +17,7 @@ import java.net.Socket;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import javax.xml.bind.DatatypeConverter;
+import java.nio.charset.Charset;
 
 import javax.crypto.*;
 
@@ -93,8 +94,8 @@ public class Notary {
 	// HashMap to keep the timestamps received by the clients -> <idConncection of client that sent the message, timestamp received>
 	private ConcurrentHashMap <String, LocalDateTime> timestampList = new ConcurrentHashMap <String, LocalDateTime>();
 
-	// HashMap to the keep clientID and the respective random number that the server sent this client -> To be used in each transfer
-	private ConcurrentHashMap <String, Integer> randomNumberList = new ConcurrentHashMap <String, Integer>();
+	// HashMap to the keep clientID and the respective hash that the server sent this client -> To be used in each transfer
+	private ConcurrentHashMap <String, String> clientsHashsList = new ConcurrentHashMap <String, String>();
 
 	// HashMap to keep random numbers and the respective hash of the factorial result of that number
 	private ConcurrentHashMap <String, Integer> hashRandomNumberList = new ConcurrentHashMap <String, Integer>();
@@ -284,7 +285,7 @@ public class Notary {
 					if(check.equals(tocheck)) {
 						
 						// try to write to the Client if it fails remove it from the list
-						if(!ct1.writeMsg(typeMessage, messageLf, 0)) {
+						if(!ct1.writeMsg(typeMessage, messageLf, "")) {
 							
 							clientsList.remove(y);
 							display("Disconnected Client " + ct1.clientID + " removed from list.");
@@ -321,7 +322,7 @@ public class Notary {
 					
 					
 					// try to write to the Client if it fails remove it from the list
-					if(!ct.writeMsg(typeMessage, messageLf, 0)) {
+					if(!ct.writeMsg(typeMessage, messageLf, "")) {
 						
 						clientsList.remove(x);
 						
@@ -359,15 +360,15 @@ public class Notary {
 	
 	
 	// to error message to a specific client
-	private synchronized boolean sendErrorMsg(Integer typeMessage, String clientName, String errorMsg, int randomNumber) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
-			
+	private synchronized boolean sendErrorMsg(Integer typeMessage, String clientName, String errorMsg, String hashToClient) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException {
+		
 		for(int t = clientsList.size(); --t >= 0;) {
 				
 			ClientThread cT1 = clientsList.get(t);
 			
 			if(clientName.equals(cT1.getClientID())){
 				
-				cT1.writeMsg(typeMessage, errorMsg, randomNumber);
+				cT1.writeMsg(typeMessage, errorMsg, hashToClient);
 			}			
 		}
 			
@@ -625,6 +626,7 @@ public class Notary {
 								for(String pair : keyValuePairs)                        //iterate over the pairs
 								{
 									String[] entry = pair.split("=");                   //split the pairs to get key and value 
+
 								    map.put(entry[0].trim(), entry[1].trim());          //add them to the hashmap and trim whitespaces
 								}
 																	
@@ -646,11 +648,15 @@ public class Notary {
 									// get the first entry of the list and send the randomNumber to the Client
 									Map.Entry<String, Integer> entry = hashRandomNumberList.entrySet().iterator().next();
 
-									updateClientsPortsTables(portsList.toString(), entry.getValue());
+									int segundoAleatorio = 100 + new Random().nextInt(900); 
+
+									String finalHash = entry.getKey() + Integer.toString(segundoAleatorio);
+
+									updateClientsPortsTables(portsList.toString(), finalHash);
 
 									timestampList.put(idConnection, localDateReceived);
 
-									randomNumberList.put(clientID, entry.getValue());
+									clientsHashsList.put(clientID, entry.getKey());
 
 								} catch (Exception e) {
 
@@ -722,7 +728,7 @@ public class Notary {
 										
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid ." +  " " + msgReceivedSell[1], 0);
+										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid ." +  " " + msgReceivedSell[1], "");
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -747,7 +753,7 @@ public class Notary {
 									    	try {
 									    		
 									    		//All Conditions passed -> Return a ACK to the Client + the wts received
-												writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1], 0);
+												writeMsg(message.getType(), "ACK" + " " + msgReceivedSell[1], "");
 
 												timestampList.put(idConnection, localDateReceived);
 												
@@ -764,7 +770,7 @@ public class Notary {
 											
 											try {
 																							
-												sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1], 0);
+												sendErrorMsg(message.getType(), clientID, "No. Your are not the owner of that good." + " " + msgReceivedSell[1], "");
 
 												timestampList.put(idConnection, localDateReceived);
 												
@@ -782,7 +788,7 @@ public class Notary {
 										
 										try {
 																											
-											sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1], 0);
+											sendErrorMsg(message.getType(), clientID, "No. The good was not found in the clients goods list." + " " + msgReceivedSell[1], "");
 
 											timestampList.put(idConnection, localDateReceived);
 											
@@ -815,7 +821,7 @@ public class Notary {
 										
 									try {
 																										
-										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid" +  " " + msgReceivedState[1], 0);
+										sendErrorMsg(message.getType(), clientID, "The timestamp received is not valid" +  " " + msgReceivedState[1], "");
 																			
 									} catch (IOException | GeneralSecurityException  e) {
 										
@@ -845,7 +851,7 @@ public class Notary {
 										    	
 										    	try {
 										    		
-													writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1], 0);
+													writeMsg(message.getType(), "Good: " + value + ", " + "Owner: " + key +  " " + msgReceivedState[1], "");
 
 													timestampList.put(idConnection, localDateReceived);
 													
@@ -864,7 +870,7 @@ public class Notary {
 										
 										try {
 																											
-											sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1], 0);
+											sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." +  " " + msgReceivedState[1], "");
 
 											timestampList.put(idConnection, localDateReceived);
 																				
@@ -881,7 +887,7 @@ public class Notary {
 										
 										try {
 																										
-											sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1], 0);
+											sendErrorMsg(message.getType(), clientID, "The good doesn't exist on the application." + " " + msgReceivedState[1], "");
 
 											timestampList.put(idConnection, localDateReceived);
 																			
@@ -906,24 +912,20 @@ public class Notary {
 								String novamsm = msmnova[0] + " " + msmnova[1];
 
 								String var = decryptMessage(novamsm.getBytes(), message.getVerifySignature(), message.getBuyer());
-								
-								if (var != null) {
-									
-									System.out.println("O pedido de transfergood é válido");
-								}
-								
+																
 								if (var == null) {
 									
-									System.out.println("pedido de transferência de bens inválido");
-									break;
-									
+									display("The message is not valid");
+
+									break;	
 								}
 								
 								String[] m = (mensagemDecryt.toString()).split(" ");
 
-								// hash received is wrong
 								try {
-									if (checkHash(clientID, message.getHashResult()) == false){
+
+									// check the number that the client sent
+									if (checkNumber(clientID, message.getRandomNumber()) == false){
 
 										display("Hash received is incorrect.");
 
@@ -935,8 +937,8 @@ public class Notary {
 
 											// pick random number of server's list
 											Object randomValue = values[generator.nextInt(values.length)];
-											
-											sendErrorMsg(message.getType(), clientID, "Hash received is incorrect." + " " + m[2], (Integer) randomValue);		
+
+											sendErrorMsg(message.getType(), clientID, "No." + " " + m[2], String.valueOf(randomValue));		
 
 											timestampList.put(idConnection, localDateReceived);
 											
@@ -989,7 +991,7 @@ public class Notary {
 												    		
 															try {
 																
-																sendErrorMsg(message.getType(), clientID, "No. You can't transfer your own good to yourself." + " " + m[2], (Integer) randomValue);		
+																sendErrorMsg(message.getType(), clientID, "No." + " " + m[2], String.valueOf(randomValue));		
 
 																timestampList.put(idConnection, localDateReceived);
 																
@@ -1023,7 +1025,7 @@ public class Notary {
 																		display("The transfer was successful.");
 
 																		//inform the seller about the outcome of the transfer + send the wts received
-															    		writeMsg(4, "ACK" + " " + m[2], (Integer) randomValue);
+															    		writeMsg(4, "ACK" + " " + m[2], String.valueOf(randomValue));
 
 															    		timestampList.put(idConnection, localDateReceived);
 															    																																												
@@ -1086,7 +1088,7 @@ public class Notary {
 												    			
 												    			try {
 																	
-																	sendErrorMsg(message.getType(), clientID, "No. The Buyer is not on the application." + " " + m[2], (Integer) randomValue);
+																	sendErrorMsg(message.getType(), clientID, "No." + " " + m[2], String.valueOf(randomValue));
 
 																	timestampList.put(idConnection, localDateReceived);
 																																	
@@ -1106,7 +1108,7 @@ public class Notary {
 													
 													try {
 																										
-														sendErrorMsg(message.getType(), clientID, "No. The good is not for sale." + " " + m[2], (Integer) randomValue);
+														sendErrorMsg(message.getType(), clientID, "No." + " " + m[2], String.valueOf(randomValue));
 
 														timestampList.put(idConnection, localDateReceived);
 																							
@@ -1125,7 +1127,7 @@ public class Notary {
 												
 												try {
 																								
-													sendErrorMsg(message.getType(), clientID, "No. The good does not exist on the application.", (Integer) randomValue);
+													sendErrorMsg(message.getType(), clientID, "No.", String.valueOf(randomValue));
 
 													timestampList.put(idConnection, localDateReceived);
 													
@@ -1141,7 +1143,7 @@ public class Notary {
 											
 											try {
 												
-												sendErrorMsg(message.getType(), clientID, "No. Wrong Input.", (Integer) randomValue);
+												sendErrorMsg(message.getType(), clientID, "No. Wrong Input.", String.valueOf(randomValue));
 
 												timestampList.put(idConnection, localDateReceived);
 												
@@ -1212,7 +1214,7 @@ public class Notary {
 		
 
 		// write a String to the Client output stream
-		private boolean writeMsg(Integer typeMessage, String msg, int randomNumber) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException{
+		private boolean writeMsg(Integer typeMessage, String msg, String hashToClient) throws NoSuchAlgorithmException,  IOException, GeneralSecurityException{
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1242,7 +1244,7 @@ public class Notary {
 					
 					//secure the current message
 
-					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection), randomNumber, "", null, null);
+					msgEncrypt = new MessageHandler(typeMessage, msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(),createSignature(msg,notaryConnection),createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection), 0, hashToClient, null, null);
 				
 				} catch (Exception e) {
 				
@@ -1271,7 +1273,7 @@ public class Notary {
 		}
 		
 		// send the portsList list to a client
-		private boolean updateMsg(String msg, int numeroRandom) throws Exception   {
+		private boolean updateMsg(String msg, String hashToSend) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1299,7 +1301,7 @@ public class Notary {
 				
 				//secure the current message
 
-				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(), createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection), numeroRandom, "", null, null);
+				msgEncrypt = new MessageHandler(6,msg.getBytes(),tempSeq.getBytes(),time.getBytes(), port, clientsList.size(), createSignature(msg,notaryConnection), createSignature(tempSeq,notaryConnection),  createSignature(time,notaryConnection), 0, hashToSend, null, null);
 							
 				//send the final message
 				sOutput.writeObject(msgEncrypt);
@@ -1324,7 +1326,7 @@ public class Notary {
 		
 		
 		// write a String to the Client output stream
-		private boolean updateClientsPortsTables(String msg, int numeroRandom) throws Exception   {
+		private boolean updateClientsPortsTables(String msg, String hashToSend) throws Exception   {
 			
 			// if Client is still connected send the message to it
 			if(!socket.isConnected()) {
@@ -1340,7 +1342,7 @@ public class Notary {
 					ClientThread ct1=clientsList.get(y);
 					
 					// send the updated table of portsList to all clients
-					ct1.updateMsg(msg, numeroRandom);
+					ct1.updateMsg(msg, hashToSend);
 					
 				}
 												
@@ -1359,12 +1361,12 @@ public class Notary {
 		}
 	}
 
-	// Generate random number with 4 digits
+	// Generate 50 random number with 4 digits
 	// calculate the hash of the result of the factorial of the random number
 	// The point is to use this function to prevent spam message of clients in transfergood
 	public void calculateHash() throws NoSuchAlgorithmException {
 
-		for (int nRandom = 0; nRandom < 10; nRandom ++){
+		for (int nRandom = 0; nRandom < 50; nRandom ++){
 
 				int numeroAleatorio = 1000 + new Random().nextInt(9000); 
 
@@ -1383,7 +1385,7 @@ public class Notary {
 	}
 
 
-	// calculate the factorial of a  number
+	// calculate the factorial of a certain number
 	// The point is to use this function to prevent spam message of clients in transfergood
 	public BigInteger calculateFactorial (int numero){ 
 
@@ -1401,30 +1403,31 @@ public class Notary {
  	}  
 
 
- 	// check if hash received by the client is correct 
-	public boolean checkHash(String clientName, String hashClient) throws NoSuchAlgorithmException {
+ 	// check if number received by the client is correct 
+	public boolean checkNumber(String clientName, Integer numberClient) throws NoSuchAlgorithmException {
 
-		Integer clientNumero = 0;
+		String tempHash = "";
 
 		// get random number of the respective client
-		for (Map.Entry<String, Integer> numberItem : randomNumberList.entrySet()) {
+		for (Map.Entry<String, String> clientItem : clientsHashsList.entrySet()) {
 
-			if (numberItem.getKey().equals(clientName)){
+			if (clientItem.getKey().equals(clientName)){
 
-				clientNumero = numberItem.getValue();
+				// hash of the respective client
+				tempHash = clientItem.getValue();
 
 				for (Map.Entry<String, Integer> numberHasItem : hashRandomNumberList.entrySet()) {
 
-					if (numberHasItem.getValue().equals(clientNumero)){
+					if (numberHasItem.getKey().equals(tempHash)){
 
-						if(numberHasItem.getKey().equals(hashClient)){
-							
-							randomNumberList.remove(clientName, clientNumero);
+						if(numberHasItem.getValue().equals(numberClient)){
+						
+							clientsHashsList.remove(clientName, tempHash);
 
 							return true;
 						}
 
-						randomNumberList.remove(clientName, clientNumero);
+						clientsHashsList.remove(clientName, tempHash);
 					}
 				}
 			}
