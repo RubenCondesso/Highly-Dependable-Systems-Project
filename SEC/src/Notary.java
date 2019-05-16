@@ -903,7 +903,7 @@ public class Notary {
 								
 							case MessageHandler.TRANSFERGOOD:
 								
-								//servidor verifica se o pedido de transfergood é verídico
+								//servidor verifica se o pedido de transfergood Ã© verÃ­dico
 								
 								String msm = new String(message.getData());
 								

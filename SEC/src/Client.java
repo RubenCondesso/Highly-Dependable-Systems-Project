@@ -1,4 +1,3 @@
-
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -555,19 +554,29 @@ public class Client  {
 					
 					msgGoodToServer = intentionToSell(msgGoodToServer);
 
-					// increment the next timestamp to be written
-					wts ++;
+					String[] w = msgGoodToServer.split(" ");
 
-					msgGoodToServer = msgGoodToServer + " " + wts;
-							
-					byte[] tempBytes = msgGoodToServer.getBytes();	
-					
-					LocalDateTime dateTime = LocalDateTime.now();
-					
-			        String time = dateTime.format(formatter);
-									
-			        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(), 0, "", null, null));					
+					// wrong input
+					if (w.length != 1){
 
+						display("Wrong input. Try again.");
+					}
+
+					else {
+
+						// increment the next timestamp to be written
+						wts ++;
+
+						msgGoodToServer = msgGoodToServer + " " + wts;
+								
+						byte[] tempBytes = msgGoodToServer.getBytes();	
+						
+						LocalDateTime dateTime = LocalDateTime.now();
+						
+				        String time = dateTime.format(formatter);
+										
+				        client.sendMessage(new MessageHandler(MessageHandler.SELL, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(), 0, "", null, null));					
+					}
 				}
 				
 				// message to the server to get the state of some good
@@ -578,20 +587,31 @@ public class Client  {
 					String msgGoodStateToServer = scan.nextLine();
 								
 					msgGoodStateToServer=getStateOfGood(msgGoodStateToServer);
+
+					String[] w = msgGoodStateToServer.split(" ");
+
+					// wrong input
+					if (w.length != 1){
+
+						display("Wrong input. Try again.");
+					}
+
+					else{
+
+						LocalDateTime dateTime = LocalDateTime.now();
 					
-					LocalDateTime dateTime = LocalDateTime.now();
-					
-			        String time = dateTime.format(formatter);
+				        String time = dateTime.format(formatter);
 
-			        //increment id of the operation
-			        rid ++;
+				        //increment id of the operation
+				        rid ++;
 
-			        msgGoodStateToServer = msgGoodStateToServer + " " + rid;
+				        msgGoodStateToServer = msgGoodStateToServer + " " + rid;
 
-			        byte[] tempBytes =msgGoodStateToServer.getBytes();
+				        byte[] tempBytes =msgGoodStateToServer.getBytes();
 
-			        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(), 0, "", null, null));																						
+				        client.sendMessage(new MessageHandler(MessageHandler.STATEGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), clientPort, 0,tempBytes, tempSeq.getBytes(), time.getBytes(), 0, "", null, null));																						
 
+					}
 				}
 				
 				// message to the server to buy some good
@@ -636,6 +656,8 @@ public class Client  {
 				        		client.sendMessageToClients(new MessageHandler(MessageHandler.BUYGOOD, tempBytes, tempSeq.getBytes(), time.getBytes(), tempPort, clientPort,tempBytes, tempSeq.getBytes(), time.getBytes(), 0, "", null, null));
 				        	
 				        		tempPort = 0;
+
+				        		display("Waiting for response.");
 				        	}	
 				        }
 					}																					          																					
@@ -827,7 +849,7 @@ public class Client  {
 												}
 
 												//the operation was not successful
-												else if(result.equals("Not ok") && (nAck >= (numberOfServers + maxFaults)/2)){
+												else if(result.equals("Not ok") && (nAck > (numberOfServers + maxFaults)/2)){
 
 													display(notif + "The operation of selling the good was not successful." + notif);
 
@@ -909,7 +931,7 @@ public class Client  {
 												}
 
 												//the operation was not successful
-												else if(result.equals("Not ok") && (nAck >= (numberOfServers + maxFaults)/2)){
+												else if(result.equals("Not ok") && (nAck > (numberOfServers + maxFaults)/2)){
 
 													display(notif + "The operation of transfer the good was not successful." + notif);
 
@@ -1465,6 +1487,8 @@ public class Client  {
 
 	// find the number that belongs to the hash received by the server
 	public Integer findNumber(String hashOfServer) throws NoSuchAlgorithmException {
+
+		display("Wait a bit please. Making some calculations.");
 
 		String finalHash ="";
 

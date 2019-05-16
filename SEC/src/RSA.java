@@ -63,9 +63,7 @@ public class RSA {
 			
 			KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("RSA");
 			
-			//KeyPairGenerator kPairGen = KeyPairGenerator.getInstance("DSA");
-			
-			kPairGen.initialize(2048);
+			kPairGen.initialize(1024);
 			
 			KeyPair kPair = kPairGen.genKeyPair();
 			
@@ -120,7 +118,7 @@ public class RSA {
 	        
 	        v3CertGen.setPublicKey(pubKey);
 	        
-	        v3CertGen.setSignatureAlgorithm("SHA256WithRSA");
+	        v3CertGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
 	        
 	        cert = v3CertGen.generateX509Certificate(privKey);
 	        
