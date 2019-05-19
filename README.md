@@ -1,5 +1,3 @@
-# SEC---Project
-
 # Highly Dependable Systems Project (2018-2019)
 
 ### Contributors
